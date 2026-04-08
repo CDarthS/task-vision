@@ -1,65 +1,125 @@
-import Image from "next/image";
+// app/page.tsx — Página inicial do Task Vision
+// Server Component que mostra o status do banco de dados
+// Referência: inspirado no conceito kanban do Planka, mas escrito do zero
 
-export default function Home() {
+import { prisma } from "@/lib/prisma";
+
+async function getDatabaseStatus(): Promise<{
+  connected: boolean;
+  userCount: number;
+  error?: string;
+}> {
+  try {
+    const userCount = await prisma.user.count();
+    return { connected: true, userCount };
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "Erro desconhecido";
+    // Simplificar mensagem técnica para o usuário
+    const message = raw.length > 100 ? raw.slice(0, 100) + "…" : raw;
+    return { connected: false, userCount: 0, error: message };
+  }
+}
+
+export default async function HomePage() {
+  const dbStatus = await getDatabaseStatus();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 relative overflow-hidden">
+      {/* Decoração de fundo — círculos difusos */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-3xl" />
+
+      <div className="relative z-10 text-center px-6 max-w-2xl">
+        {/* Logo / Ícone */}
+        <div className="mx-auto mb-8 w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+          <svg
+            className="w-10 h-10 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </svg>
         </div>
-      </main>
-    </div>
+
+        {/* Título */}
+        <h1 className="text-5xl sm:text-6xl font-bold text-white mb-4 tracking-tight">
+          Task{" "}
+          <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+            Vision
+          </span>
+        </h1>
+
+        {/* Subtítulo */}
+        <p className="text-lg sm:text-xl text-slate-400 mb-10">
+          Esqueleto vivo — Fase 1 ✅
+        </p>
+
+        {/* Card de Status */}
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-xl">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">
+            Status do Sistema
+          </h2>
+
+          <div className="flex items-center justify-center gap-3">
+            {dbStatus.connected ? (
+              <>
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                </span>
+                <span className="text-emerald-400 font-medium">
+                  🟢 Banco de dados conectado ({dbStatus.userCount} usuários)
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="relative flex h-3 w-3">
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                </span>
+                <span className="text-red-400 font-medium">
+                  🔴 Banco offline (configure DATABASE_URL)
+                </span>
+              </>
+            )}
+          </div>
+
+          {!dbStatus.connected && dbStatus.error && (
+            <p className="mt-3 text-xs text-slate-500 font-mono break-all">
+              {dbStatus.error}
+            </p>
+          )}
+        </div>
+
+        {/* Info da Stack */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-500">
+          <span className="px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
+            Next.js 16
+          </span>
+          <span className="px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
+            TypeScript
+          </span>
+          <span className="px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
+            Prisma 7
+          </span>
+          <span className="px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
+            PostgreSQL
+          </span>
+          <span className="px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
+            Tailwind CSS
+          </span>
+        </div>
+
+        {/* Rodapé */}
+        <p className="mt-10 text-xs text-slate-600">
+          Feito por Carlos • SV Digital Ltda
+        </p>
+      </div>
+    </main>
   );
 }
