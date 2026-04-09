@@ -493,12 +493,13 @@ Esta regra deve ser seguida por qualquer IA que tenha capacidade de abrir e inte
 - **SEMPRE** quando criar uma nova rota/pagina — verificar se carrega corretamente
 - **ANTES** de declarar uma tarefa como concluida, se envolve UI
 
-### Como testar:
-1. Abrir o navegador na URL de producao: `https://task-vision-production.up.railway.app/`
-2. Se necessario fazer login, usar as credenciais do admin (email/senha das env vars)
-3. Navegar ate a pagina alterada e verificar visualmente
-4. Capturar screenshot se relevante
-5. Reportar o resultado ao usuario
+### Como testar (PROCEDIMENTO OBRIGATORIO COM PAUSA):
+1. **ABRIR O NAVEGADOR NA PRODUCAO:** Abrir a pagina de login: `https://task-vision-production.up.railway.app/login` (PROIBIDO usar localhost)
+2. **PAUSAR A EXECUCAO:** Enviar mensagem ao usuario: "Por favor, faca o login manualmente no navegador usando as credenciais de admin. Me avise aqui no chat quando terminar."
+3. **AGUARDAR O SINAL VERDE:** E PROIBIDO executar qualquer outra acao antes que o usuario responda explicitamente com algo como "ok", "feito" ou "pode continuar"
+4. **RETOMAR O TESTE:** Apenas apos a confirmacao do usuario, prosseguir com a navegacao para testar a pagina ou funcionalidade solicitada
+5. Capturar screenshot se relevante
+6. Reportar o resultado ao usuario
 
 ### URLs importantes:
 - **Producao:** `https://task-vision-production.up.railway.app/`
@@ -536,3 +537,43 @@ O usuario nao sabe programar e depende da IA para verificar se as mudancas estao
 
 ### Arquivos Modificados:
 - `.gitignore` — adicionado `.claude/` para ignorar configs locais da IDE
+
+---
+
+## 2026-04-09 — Fase 3, Etapa 2: Refinamento Visual do Board (Kanban Trello-like)
+
+### Status anterior
+- Interface do board ja existia com layout basico funcional (criada na conversa anterior)
+- Listas horizontais, cards empilhados, fundo gradiente — estrutura correta
+- Board header tinha breadcrumb desnecessario
+
+### Mudancas Aplicadas
+
+#### `components/board/board-header.tsx`
+- **Removido** breadcrumb (link para workspace + chevron icon)
+- **Removidos** props `workspaceId` e `workspaceName` — agora so recebe `title`
+- Header agora mostra apenas o titulo do board em branco/negrito sobre fundo translucido
+
+#### `components/board/kanban-card.tsx`
+- **Adicionado** `active:scale-[0.98]` — micro-animacao de press para feedback tatil
+- **Adicionado** `hover:shadow-md` — sombra mais forte no hover para profundidade
+- **Trocado** `transition-colors` por `transition-all duration-150` para animar tudo
+- **Adicionado** `select-none` no texto para evitar selecao acidental ao arrastar
+- **Adicionado** `py-2.5` (antes era `py-2`) para padding vertical mais confortavel
+- **Ajustada** borda de `border-gray-200` para `border-gray-200/80` (mais sutil)
+
+#### `components/board/kanban-list.tsx`
+- **Trocado** `rounded-xl` por `rounded-2xl` nas listas (bordas mais arredondadas)
+- **Adicionado** `cursor-pointer` nos botoes de opcoes e adicionar cartao
+
+#### `app/(dashboard)/boards/[id]/page.tsx`
+- **Simplificado** uso do `BoardHeader` — removidos props `workspaceId` e `workspaceName`
+- **Trocado** `rounded-xl` por `rounded-2xl` no botao "Adicionar outra lista"
+- **Adicionado** `transition-all duration-200` e `active:scale-[0.97]` no botao fantasma
+
+### Arquivos Modificados:
+- `components/board/board-header.tsx`
+- `components/board/kanban-card.tsx`
+- `components/board/kanban-list.tsx`
+- `app/(dashboard)/boards/[id]/page.tsx`
+- `claude.md` — atualizado regra de teste via navegador (pausa obrigatoria para login manual) e log desta etapa

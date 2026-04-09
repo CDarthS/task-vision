@@ -15,12 +15,12 @@ interface KanbanListProps {
 
 export function KanbanList({ title, cards }: KanbanListProps) {
   return (
-    <div className="w-72 shrink-0 bg-slate-100 rounded-xl flex flex-col max-h-full shadow-md">
+    <div className="w-72 shrink-0 bg-slate-100 rounded-2xl flex flex-col max-h-full shadow-md">
       {/* Header da lista — fixo no topo */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
-          <button className="p-1 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors">
+          <button className="p-1 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors cursor-pointer">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -47,7 +47,7 @@ export function KanbanList({ title, cards }: KanbanListProps) {
 
       {/* Botao adicionar card — fixo no fundo */}
       <div className="px-2 py-2 shrink-0">
-        <button className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors">
+        <button className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer">
           <svg
             className="w-4 h-4"
             fill="none"

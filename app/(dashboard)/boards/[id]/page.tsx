@@ -48,14 +48,10 @@ export default async function BoardPage({
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-purple-600 via-violet-500 to-pink-400">
-      {/* Board Header */}
-      <BoardHeader
-        title="Quadro de Teste"
-        workspaceId="mock"
-        workspaceName="Meu Workspace"
-      />
+      {/* Board Header — barra fina translucida com titulo */}
+      <BoardHeader title="Quadro de Teste" />
 
-      {/* Kanban Canvas — scroll horizontal */}
+      {/* Kanban Canvas — scroll horizontal, sem quebra de linha */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
         <div className="flex items-start gap-4 h-full">
           {/* Listas */}
@@ -68,8 +64,8 @@ export default async function BoardPage({
             />
           ))}
 
-          {/* Botao adicionar outra lista */}
-          <button className="w-72 shrink-0 h-12 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white/80 hover:text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer">
+          {/* Botao adicionar outra lista — mesmo width das listas, fantasma */}
+          <button className="w-72 shrink-0 h-12 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white/80 hover:text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer active:scale-[0.97]">
             <svg
               className="w-4 h-4"
               fill="none"
