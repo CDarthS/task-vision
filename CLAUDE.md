@@ -577,3 +577,108 @@ O usuario nao sabe programar e depende da IA para verificar se as mudancas estao
 - `components/board/kanban-list.tsx`
 - `app/(dashboard)/boards/[id]/page.tsx`
 - `claude.md` — atualizado regra de teste via navegador (pausa obrigatoria para login manual) e log desta etapa
+
+---
+
+## 2026-04-09 — Fase 4: Board Funcional (CRUD de Listas, Cards, Modal de Detalhe)
+
+### Status anterior
+- Board existia apenas com dados mockados (falsos) — nao conectava ao banco
+- Nao era possivel criar cartao, acessar cartao ou criar lista — tudo era visual estatico
+- Pagina do workspace nao tinha link de navegacao para boards reais
+- Nao existia botao para criar boards dentro de um workspace
+
+### Problemas Reportados pelo Usuario
+1. **Nao consigo criar cartao** — Botoes "Adicionar um cartao" nao tinham funcionalidade
+2. **Nao consigo acessar um cartao** — Clicar nos cards nao abria nenhum detalhe
+3. **Nao consigo criar uma nova lista** — Botao "Adicionar outra lista" nao funcionava
+
+### Causa Raiz
+- **Nao existiam API routes** para boards, lists ou cards — so existiam para auth, users e workspaces
+- A pagina do board usava **dados mockados** (constante MOCK_LISTS) em vez de consultar o banco
+- Os botoes eram puramente visuais sem onClick handlers conectados a APIs
+- Os cards do workspace nao eram links clicaveis para os boards
+
+### Correcoes e Novas Funcionalidades
+
+#### API Routes Criadas (5 arquivos novos)
+- `app/api/boards/route.ts` — POST criar board (valida workspace membership)
+- `app/api/boards/[id]/route.ts` — GET board com listas e cards (verifica acesso)
+- `app/api/lists/route.ts` — POST criar lista (posicao automatica no final)
+- `app/api/cards/route.ts` — POST criar card (posicao automatica no final)
+- `app/api/cards/[id]/route.ts` — GET detalhe + PATCH atualizar + DELETE excluir card
+
+#### Componentes Criados (2 arquivos novos)
+- `components/board/board-client.tsx` — componente client principal do board:
+  - Gerencia estado de listas e cards com useState
+  - Funcao handleCreateList() — chama POST /api/lists
+  - Funcao handleCreateCard() — chama POST /api/cards
+  - Funcao handleCardClick() — abre modal do card
+  - Funcao handleCardUpdate() — atualiza card no estado apos PATCH
+  - Funcao handleCardDelete() — remove card do estado apos DELETE
+  - Input inline para criar lista com fundo branco e botao "Adicionar lista"
+  - Renderiza CardDetailModal quando um card e selecionado
+
+- `components/board/card-detail-modal.tsx` — modal de detalhe do card (inspirado no print do usuario):
+  - Layout 2 colunas: conteudo principal (esquerda) + atividade (direita)
+  - Barra de topo com nome da lista atual + icones (capa, acompanhar, opcoes, fechar)
+  - Titulo editavel inline (clica pra editar, Enter pra salvar, Esc pra cancelar)
+  - Botoes de acao: Adicionar, Etiquetas, Checklist, Anexo
+  - Secao Membros com avatar (iniciais do usuario) e botao + para adicionar
+  - Data de Entrega com badge "Em Atraso" se criado ha mais de 24h
+  - Descricao editavel com textarea expandivel e botoes Salvar/Cancelar
+  - Comentarios e atividade: campo de input + feed com acao "adicionou este cartao a [lista]"
+  - Botao "Mostrar Detalhes" expande secao com data criacao, ultima atualizacao, lista, e botao excluir
+  - Overlay escuro com backdrop-blur, fecha ao clicar fora ou pressionar ESC
+  - z-50 e position fixed para funcionar acima de qualquer layout
+
+- `components/create-board-modal.tsx` — modal para criar board dentro de um workspace:
+  - Dialog com input de titulo
+  - POST /api/boards e navega para /boards/[id] apos criar
+  - Estilo dark theme consistente com CreateWorkspaceModal
+
+#### Arquivos Modificados (4 arquivos)
+- `app/(dashboard)/boards/[id]/page.tsx` — **reescrito completamente**:
+  - Removido MOCK_LISTS e todos os dados falsos
+  - Agora busca board real do banco com Prisma (include lists + cards)
+  - Verifica autenticacao e membership do workspace
+  - Serializa datas para JSON (Server Component → Client Component)
+  - Renderiza BoardClient em vez de renderizar listas diretamente
+
+- `components/board/kanban-list.tsx` — **reescrito**:
+  - Interface CardData agora tem todos os campos (description, position, listId, createdAt, updatedAt)
+  - Props adicionadas: onCreateCard (callback) e onCardClick (callback)
+  - Input inline para criar card com textarea (multiline, Enter submete)
+  - Botao alterna entre "Adicionar um cartao" e o formulario inline
+  - Indicador visual de descricao nos cards (icone de linhas horizontais)
+
+- `components/board/kanban-card.tsx` — atualizado:
+  - Prop onClick adicionada para abrir o modal
+  - Prop hasDescription adicionada para mostrar icone indicador
+  - Icone de descricao (3 linhas horizontais) aparece quando card tem descricao
+
+- `app/(dashboard)/workspaces/[id]/page.tsx` — atualizado:
+  - Board cards agora sao `<Link>` clicaveis (antes eram `<div>`)
+  - Navega para `/boards/[boardId]` ao clicar
+  - Adicionado `<CreateBoardModal>` com botao "+ Novo Board"
+  - Import do CreateBoardModal e Link adicionados
+
+### Decisoes Tecnicas
+- Cards marcam posicao com incremento de 1000 (1000, 2000, 3000...) para facilitar reordenacao futura
+- API de cards suporta mover card entre listas via PATCH (campo listId)
+- Modal usa position:fixed com z-50 para funcionar independente do overflow:hidden do layout do board
+- Estado do board e gerenciado no client (useState) para atualizacoes instantaneas sem reload
+- Todas as APIs verificam membership do workspace antes de permitir operacoes
+
+### Verificacao
+- `npm run build` — compilou sem erros
+- Todas as novas rotas aparecem no build: /api/boards, /api/boards/[id], /api/lists, /api/cards, /api/cards/[id]
+- Testado em producao: workspace mostra boards clicaveis, board busca dados reais do banco
+- Testado: criar lista "A Fazer" funcionou
+- Testado: criar card "Tarefa de teste" funcionou
+- Testado via JavaScript: modal do card abre corretamente (confirmado via DOM query)
+
+### Erros e Correcoes
+| # | Erro | Causa | Correcao |
+|---|------|-------|----------|
+| 9 | PowerShell recusa `&&` no git commit | Sintaxe PS vs Bash | Rodei git add e git commit separados |
