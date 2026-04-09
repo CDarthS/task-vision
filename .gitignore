@@ -43,5 +43,8 @@ next-env.d.ts
 
 /lib/generated/prisma
 
+# IDE config
+.claude/
+
 # documentação local
 README.md
