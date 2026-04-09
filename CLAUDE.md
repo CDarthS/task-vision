@@ -365,6 +365,57 @@ taskvision/
 
 ---
 
+## 2026-04-09 — Fase 3, Etapa 1: Criacao e Listagem de Workspaces
+
+### Status anterior
+- Fase 2 (autenticacao) esta 100% concluida e em producao no Railway
+- Login, logout, middleware, painel admin de usuarios — tudo funcionando
+
+### Referencia
+- Analisamos `https://github.com/SVTestes/kanban-vision` (Planka fork) para entender como Projects/Boards funcionam
+- No Planka, "Project" = nosso "Workspace". Cards em grid responsiva com gradientes CSS coloridos
+- Modal de criacao com nome + descricao, auto-membership do criador como manager
+- 25 gradientes CSS pre-definidos para fundo dos cards
+
+### Plano desta Etapa
+| Passo | Descricao | Status |
+|-------|-----------|--------|
+| 1 | Ajustar schema Prisma (description, backgroundGradient no Workspace) | Feito |
+| 2 | Criar helpers (slugify, workspace-gradients) | Feito |
+| 3 | Criar API routes workspaces CRUD | Feito |
+| 4 | Criar componente workspace-card | Feito |
+| 5 | Criar modal de criacao de workspace | Feito |
+| 6 | Atualizar dashboard com grid de workspaces | Feito |
+| 7 | Build + lint + commit + push | Feito |
+
+### Mudancas no Schema Prisma
+- **Workspace**: adicionados campos `description` (String?, VarChar(1024)) e `backgroundGradient` (String?)
+- Demais models sem alteracao
+
+### Arquivos Criados
+- `lib/slugify.ts` — slugify() e slugifyWithSuffix() para gerar URLs amigaveis
+- `lib/workspace-gradients.ts` — 25 gradientes CSS (Planka), getRandomGradient(), getGradientByName()
+- `app/api/workspaces/route.ts` — GET listar + POST criar (com transacao: workspace + membership OWNER)
+- `app/api/workspaces/[id]/route.ts` — GET, PATCH, DELETE workspace (com controle de acesso)
+- `components/workspace-card.tsx` — card com gradiente, nome, descricao, contagem boards/members
+- `components/create-workspace-modal.tsx` — dialog base-ui com nome + descricao, faz POST e router.refresh()
+
+### Arquivos Modificados
+- `app/(dashboard)/page.tsx` — substituido placeholder por grid responsiva de WorkspaceCards + empty state + botao criar
+- `prisma/schema.prisma` — adicionados 2 campos ao Workspace
+
+### Decisoes Tecnicas
+- Slug gerado com sufixo aleatorio (4 chars) para evitar colisoes: "meu-projeto-abc1"
+- Gradiente atribuido aleatoriamente ao criar (dos 25 presets do Planka)
+- Transacao Prisma garante que workspace + membership sao criados juntos
+- Dashboard usa Server Component com query direta ao Prisma (sem fetch API)
+- Grid responsiva: 1 col mobile, 2 sm, 3 lg, 4 xl
+
+### Erros e Correcoes
+- Nenhum erro nesta etapa. Build e lint passaram de primeira
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
