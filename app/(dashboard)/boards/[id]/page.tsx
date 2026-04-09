@@ -1,38 +1,7 @@
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { redirect } from "next/navigation";
-import { BoardHeader } from "@/components/board/board-header";
-import { KanbanList } from "@/components/board/kanban-list";
-
-// Mock data — sera substituido por dados reais do banco na proxima etapa
-const MOCK_LISTS = [
-  {
-    id: "list-1",
-    title: "Hoje",
-    cards: [
-      { id: "card-1", title: "Card Modelo" },
-      { id: "card-2", title: "Revisar documentacao do projeto" },
-      { id: "card-3", title: "Corrigir bug no formulario de login" },
-    ],
-  },
-  {
-    id: "list-2",
-    title: "Esta semana",
-    cards: [
-      { id: "card-4", title: "Criar tela de configuracoes" },
-      { id: "card-5", title: "Implementar notificacoes por email" },
-    ],
-  },
-  {
-    id: "list-3",
-    title: "Mais tarde",
-    cards: [
-      { id: "card-6", title: "Adicionar modo escuro nas configuracoes" },
-      { id: "card-7", title: "Melhorar performance do dashboard" },
-      { id: "card-8", title: "Escrever testes automatizados" },
-      { id: "card-9", title: "Integrar com API externa de pagamentos" },
-    ],
-  },
-];
+import { prisma } from "@/lib/prisma";
+import { redirect, notFound } from "next/navigation";
+import { BoardClient } from "@/components/board/board-client";
 
 export default async function BoardPage({
   params,
@@ -44,45 +13,64 @@ export default async function BoardPage({
     redirect("/login");
   }
 
-  await params; // consome o param (sera usado quando plugar no banco)
+  const { id } = await params;
+
+  const board = await prisma.board.findUnique({
+    where: { id },
+    include: {
+      workspace: {
+        select: { id: true, name: true, ownerId: true },
+      },
+      lists: {
+        orderBy: { position: "asc" },
+        include: {
+          cards: {
+            orderBy: { position: "asc" },
+          },
+        },
+      },
+    },
+  });
+
+  if (!board) {
+    notFound();
+  }
+
+  // Verifica se o usuario tem acesso ao workspace do board
+  const membership = await prisma.workspaceMember.findUnique({
+    where: {
+      workspaceId_userId: {
+        workspaceId: board.workspaceId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership && user.role !== "ADMIN") {
+    notFound();
+  }
+
+  // Serializa dates para JSON (Next.js Server Components)
+  const serializedBoard = {
+    ...board,
+    createdAt: board.createdAt.toISOString(),
+    updatedAt: board.updatedAt.toISOString(),
+    lists: board.lists.map((list) => ({
+      ...list,
+      createdAt: list.createdAt.toISOString(),
+      updatedAt: list.updatedAt.toISOString(),
+      cards: list.cards.map((card) => ({
+        ...card,
+        createdAt: card.createdAt.toISOString(),
+        updatedAt: card.updatedAt.toISOString(),
+      })),
+    })),
+  };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-purple-600 via-violet-500 to-pink-400">
-      {/* Board Header — barra fina translucida com titulo */}
-      <BoardHeader title="Quadro de Teste" />
-
-      {/* Kanban Canvas — scroll horizontal, sem quebra de linha */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
-        <div className="flex items-start gap-4 h-full">
-          {/* Listas */}
-          {MOCK_LISTS.map((list) => (
-            <KanbanList
-              key={list.id}
-              id={list.id}
-              title={list.title}
-              cards={list.cards}
-            />
-          ))}
-
-          {/* Botao adicionar outra lista — mesmo width das listas, fantasma */}
-          <button className="w-72 shrink-0 h-12 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white/80 hover:text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer active:scale-[0.97]">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-            Adicionar outra lista
-          </button>
-        </div>
-      </div>
-    </div>
+    <BoardClient
+      board={serializedBoard}
+      userName={user.name}
+    />
   );
 }

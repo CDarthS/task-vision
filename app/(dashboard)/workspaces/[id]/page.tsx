@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { getGradientByName } from "@/lib/workspace-gradients";
 import Link from "next/link";
+import { CreateBoardModal } from "@/components/create-board-modal";
 
 export default async function WorkspacePage({
   params,
@@ -153,15 +154,16 @@ export default async function WorkspacePage({
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-white">Boards</h2>
-          {/* Botao de criar board sera adicionado na Fase 3 Etapa 2 */}
+          <CreateBoardModal workspaceId={id} />
         </div>
 
         {workspace.boards.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {workspace.boards.map((board) => (
-              <div
+              <Link
                 key={board.id}
-                className="group relative block h-[100px] rounded-xl overflow-hidden shadow-lg bg-white/5 border border-white/10 transition-all duration-200 hover:shadow-xl hover:border-white/20"
+                href={`/boards/${board.id}`}
+                className="group relative block h-[100px] rounded-xl overflow-hidden shadow-lg bg-white/5 border border-white/10 transition-all duration-200 hover:shadow-xl hover:border-white/20 cursor-pointer"
               >
                 <div className="h-full flex flex-col justify-between p-4">
                   <h3 className="text-base font-semibold text-white leading-tight line-clamp-2">
@@ -172,7 +174,7 @@ export default async function WorkspacePage({
                     {new Date(board.createdAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
