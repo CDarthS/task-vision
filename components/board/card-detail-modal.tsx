@@ -9,6 +9,20 @@ interface CommentData {
   user: { id: string; name: string; email: string };
 }
 
+interface ChecklistItemData {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  position: number;
+}
+
+interface ChecklistData {
+  id: string;
+  title: string;
+  position: number;
+  items: ChecklistItemData[];
+}
+
 interface CardData {
   id: string;
   title: string;
@@ -57,12 +71,18 @@ export function CardDetailModal({
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
 
+  // Checklists state
+  const [checklists, setChecklists] = useState<ChecklistData[]>([]);
+  const [newItemTexts, setNewItemTexts] = useState<Record<string, string>>({});
+  const [addingChecklist, setAddingChecklist] = useState(false);
+
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Carrega comentarios ao abrir
+  // Carrega comentarios e checklists ao abrir
   useEffect(() => {
     loadComments();
+    loadChecklists();
   }, [card.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadComments() {
@@ -78,6 +98,96 @@ export function CardDetailModal({
     } finally {
       setLoadingComments(false);
     }
+  }
+
+  async function loadChecklists() {
+    try {
+      const res = await fetch(`/api/cards/${card.id}/checklists`);
+      const data = await res.json();
+      if (res.ok) setChecklists(data.checklists);
+    } catch { /* silently fail */ }
+  }
+
+  async function createChecklist() {
+    setAddingChecklist(true);
+    try {
+      const res = await fetch(`/api/cards/${card.id}/checklists`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Checklist" }),
+      });
+      const data = await res.json();
+      if (res.ok) setChecklists((prev) => [...prev, data.checklist]);
+    } catch { /* silently fail */ }
+    finally { setAddingChecklist(false); }
+  }
+
+  async function deleteChecklist(checklistId: string) {
+    try {
+      const res = await fetch(`/api/checklists/${checklistId}`, { method: "DELETE" });
+      if (res.ok) setChecklists((prev) => prev.filter((c) => c.id !== checklistId));
+    } catch { /* silently fail */ }
+  }
+
+  async function addChecklistItem(checklistId: string) {
+    const text = newItemTexts[checklistId]?.trim();
+    if (!text) return;
+    try {
+      const res = await fetch(`/api/checklists/${checklistId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: text }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setChecklists((prev) =>
+          prev.map((c) =>
+            c.id === checklistId ? { ...c, items: [...c.items, data.item] } : c
+          )
+        );
+        setNewItemTexts((prev) => ({ ...prev, [checklistId]: "" }));
+      }
+    } catch { /* silently fail */ }
+  }
+
+  async function toggleChecklistItem(checklistId: string, itemId: string, isCompleted: boolean) {
+    // Optimistic update
+    setChecklists((prev) =>
+      prev.map((c) =>
+        c.id === checklistId
+          ? { ...c, items: c.items.map((i) => i.id === itemId ? { ...i, isCompleted: !isCompleted } : i) }
+          : c
+      )
+    );
+    try {
+      await fetch(`/api/checklist-items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isCompleted: !isCompleted }),
+      });
+    } catch {
+      // Revert on failure
+      setChecklists((prev) =>
+        prev.map((c) =>
+          c.id === checklistId
+            ? { ...c, items: c.items.map((i) => i.id === itemId ? { ...i, isCompleted } : i) }
+            : c
+        )
+      );
+    }
+  }
+
+  async function deleteChecklistItem(checklistId: string, itemId: string) {
+    try {
+      const res = await fetch(`/api/checklist-items/${itemId}`, { method: "DELETE" });
+      if (res.ok) {
+        setChecklists((prev) =>
+          prev.map((c) =>
+            c.id === checklistId ? { ...c, items: c.items.filter((i) => i.id !== itemId) } : c
+          )
+        );
+      }
+    } catch { /* silently fail */ }
   }
 
   // Fecha ao clicar no overlay
@@ -342,11 +452,15 @@ export function CardDetailModal({
                 </svg>
                 Etiquetas
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+              <button
+                onClick={createChecklist}
+                disabled={addingChecklist}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
-                Checklist
+                {addingChecklist ? "Criando..." : "Checklist"}
               </button>
               <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -504,6 +618,100 @@ export function CardDetailModal({
                 </div>
               )}
             </div>
+
+            {/* Checklists */}
+            {checklists.map((checklist) => {
+              const total = checklist.items.length;
+              const completed = checklist.items.filter((i) => i.isCompleted).length;
+              const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+              return (
+                <div key={checklist.id} className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                      </svg>
+                      <h3 className="text-base font-semibold text-gray-800">{checklist.title}</h3>
+                    </div>
+                    <button
+                      onClick={() => deleteChecklist(checklist.id)}
+                      className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+
+                  {/* Progress bar */}
+                  {total > 0 && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs text-gray-500 w-8">{percent}%</span>
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${percent === 100 ? 'bg-green-500' : 'bg-violet-500'}`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Items */}
+                  <div className="space-y-1 mb-2">
+                    {checklist.items.map((item) => (
+                      <div key={item.id} className="flex items-center gap-2 group py-1 px-1 rounded hover:bg-gray-50 transition-colors">
+                        <button
+                          onClick={() => toggleChecklistItem(checklist.id, item.id, item.isCompleted)}
+                          className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                            item.isCompleted
+                              ? 'bg-violet-500 border-violet-500 text-white'
+                              : 'border-gray-300 hover:border-violet-400'
+                          }`}
+                        >
+                          {item.isCompleted && (
+                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          )}
+                        </button>
+                        <span className={`flex-1 text-sm ${item.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                          {item.title}
+                        </span>
+                        <button
+                          onClick={() => deleteChecklistItem(checklist.id, item.id)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all cursor-pointer p-0.5"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add item input */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newItemTexts[checklist.id] || ""}
+                      onChange={(e) => setNewItemTexts((prev) => ({ ...prev, [checklist.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addChecklistItem(checklist.id);
+                      }}
+                      placeholder="Adicionar um item..."
+                      className="flex-1 px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 transition-all placeholder:text-gray-400"
+                    />
+                    {(newItemTexts[checklist.id] || "").trim() && (
+                      <button
+                        onClick={() => addChecklistItem(checklist.id)}
+                        className="px-3 py-1.5 bg-violet-600 text-white text-xs rounded-lg hover:bg-violet-700 transition-colors cursor-pointer"
+                      >
+                        Adicionar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Coluna direita — atividade */}
