@@ -239,3 +239,140 @@ taskvision/
 ├── README.md                    # Guia em português
 └── tsconfig.json                # Config do TypeScript (strict: true)
 ```
+
+### ?? Git Push
+O c�digo foi enviado com sucesso para o reposit�rio https://github.com/SVTestes/task-vision.git na branch main.
+
+### ?? Ignorar README.md
+ O arquivo "README.md" foi adicionado ao .gitignore e removido do reposit�rio no GitHub para que a documenta��o local nunca seja compartilhada externamente.
+
+---
+
+## 2026-04-09 — Fase 2: Autenticacao
+
+### Referencia
+- Baseado no sistema de auth do kanban-vision (Planka fork)
+- Sem cadastro publico — admin cria usuarios manualmente
+- Login com email/username + senha
+- Senhas com bcrypt (10 rounds)
+- Sessoes com JWT + cookie HTTP-only duplo (accessToken + httpOnlyToken)
+
+### Plano de Execucao
+| Passo | Descricao | Status |
+|-------|-----------|--------|
+| 1 | Instalar dependencias (bcrypt, jsonwebtoken, uuid, tsx) | Feito |
+| 2 | Atualizar schema Prisma (User + Session + UserRole enum) | Feito |
+| 3 | Atualizar .env.example (JWT_SECRET, DEFAULT_ADMIN_*) | Feito |
+| 4 | Criar lib de auth (password, jwt, session, get-current-user) | Feito |
+| 5 | Criar API routes (login, logout, me, users CRUD, password) | Feito |
+| 6 | Criar middleware.ts de protecao de rotas | Feito |
+| 7 | Instalar componentes shadcn (input, label, card, dialog, table, badge, dropdown-menu, separator, avatar) | Feito |
+| 8 | Criar pagina de login | Feito |
+| 9 | Criar layout do dashboard com nav | Feito |
+| 10 | Criar painel admin de usuarios | Feito |
+| 11 | Criar seed do admin padrao | Feito |
+
+### Mudancas no Schema Prisma
+- **User**: adicionados campos `password`, `username` (unique), `role` (UserRole enum), `isDeactivated`, `passwordChangedAt`. Removido `image`. Campo `name` agora e obrigatorio.
+- **Session**: novo model com `accessToken` (unique), `httpOnlyToken` (unique), `userId`, `remoteAddress`, `userAgent`, `expiresAt`
+- **UserRole**: novo enum (ADMIN, PROJECT_OWNER, MEMBER)
+
+### Arquivos Criados
+- `lib/auth/password.ts` — hashPassword() e verifyPassword() com bcrypt
+- `lib/auth/jwt.ts` — createToken() e verifyToken() com jsonwebtoken
+- `lib/auth/session.ts` — createSession(), getSessionByToken(), deleteSession()
+- `lib/auth/get-current-user.ts` — getCurrentUser(), requireUser(), requireAdmin()
+- `app/api/auth/login/route.ts` — POST login com email/username + senha
+- `app/api/auth/logout/route.ts` — DELETE logout (limpa sessao e cookies)
+- `app/api/auth/me/route.ts` — GET usuario atual
+- `app/api/users/route.ts` — GET listar + POST criar (admin only)
+- `app/api/users/[id]/route.ts` — GET, PATCH, DELETE usuario
+- `app/api/users/[id]/password/route.ts` — PATCH alterar senha
+- `middleware.ts` — protege rotas, redireciona para /login se nao autenticado
+- `app/login/page.tsx` — pagina de login (dark theme, gradiente indigo/violet)
+- `app/(dashboard)/layout.tsx` — layout protegido com nav
+- `app/(dashboard)/page.tsx` — dashboard inicial (placeholder para workspaces)
+- `app/(dashboard)/admin/users/page.tsx` — painel admin (CRUD de usuarios)
+- `components/dashboard-nav.tsx` — barra de navegacao com menu do usuario
+- `prisma/seed.ts` — cria admin padrao a partir de env vars
+
+### Erros e Correcoes
+| # | Erro | Causa | Correcao |
+|---|------|-------|----------|
+| 7 | `asChild` prop nao existe no DialogTrigger/DropdownMenuTrigger | shadcn v4 usa base-ui em vez de Radix | Troquei para prop `render` do base-ui |
+| 8 | Build falhou por referencia ao antigo app/page.tsx no cache .next | Cache do Turbopack manteve referencia ao arquivo deletado | Limpei .next e reconstrui |
+
+### Fluxo de Auth
+1. Deploy inicial → `npm run db:seed` → cria admin com DEFAULT_ADMIN_*
+2. Admin acessa /login → digita email + senha
+3. POST /api/auth/login → bcrypt.compare → cria Session → seta cookies httpOnly
+4. Middleware verifica cookie em todas as rotas → permite ou redireciona para /login
+5. Admin vai em /admin/users → cria novos usuarios com email + senha
+6. Novo usuario acessa /login → usa credenciais que o admin forneceu
+
+### Estrutura Atualizada
+```
+taskvision/
+├── app/
+│   ├── (dashboard)/
+│   │   ├── layout.tsx               # Layout protegido com nav
+│   │   ├── page.tsx                 # Dashboard (placeholder workspaces)
+│   │   └── admin/users/page.tsx     # Painel admin de usuarios
+│   ├── api/
+│   │   ├── auth/
+│   │   │   ├── login/route.ts       # POST login
+│   │   │   ├── logout/route.ts      # DELETE logout
+│   │   │   └── me/route.ts          # GET usuario atual
+│   │   └── users/
+│   │       ├── route.ts             # GET listar + POST criar
+│   │       └── [id]/
+│   │           ├── route.ts         # GET, PATCH, DELETE
+│   │           └── password/route.ts # PATCH alterar senha
+│   ├── login/page.tsx               # Pagina de login
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── favicon.ico
+├── components/
+│   ├── dashboard-nav.tsx            # Nav bar
+│   └── ui/                          # shadcn components
+├── lib/
+│   ├── auth/
+│   │   ├── password.ts              # bcrypt hash/verify
+│   │   ├── jwt.ts                   # JWT create/verify
+│   │   ├── session.ts               # Session CRUD
+│   │   └── get-current-user.ts      # Auth helpers
+│   ├── generated/prisma/            # Prisma client (gitignored)
+│   ├── prisma.ts                    # Prisma singleton
+│   └── utils.ts                     # cn() helper
+├── prisma/
+│   ├── schema.prisma                # Schema atualizado
+│   └── seed.ts                      # Seed do admin
+├── middleware.ts                     # Protecao de rotas
+└── ...
+```
+
+---
+
+## Fluxo de Deploy - REGRA OBRIGATORIA
+
+Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
+
+### Antes de qualquer edicao:
+- SEMPRE executar git pull origin main antes de comecar qualquer mudanca
+- Informar o resultado do pull: avisar se havia novidades (e quais arquivos mudaram) ou se ja estava atualizado
+
+### Ao fazer alteracoes:
+- SEMPRE fazer push direto para a branch main - nunca criar branches separadas
+- Commitar e dar push a cada mudanca concluida - nao acumular alteracoes
+- O Railway faz auto-deploy automaticamente ao detectar push na main
+- Nao ha ambiente local de testes - o codigo vai direto para producao
+
+### Em caso de problemas:
+- Reverter via Git: git revert seguido de push
+
+### Fluxo padrao:
+1. git pull origin main  (SEMPRE antes de editar)
+2. Fazer as alteracoes
+3. git add .
+4. git commit -m descricao
+5. git push origin main  (Railway faz deploy automatico)

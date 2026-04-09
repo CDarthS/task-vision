@@ -1,5 +1,6 @@
 // Task Vision — Schema do banco de dados
 // Inspirado na estrutura kanban: Workspace > Board > List > Card
+// Auth: sem cadastro público — admin cria usuários manualmente
 // Cascade deletes: deletar pai remove todos os filhos automaticamente
 
 generator client {
@@ -11,18 +12,48 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  image     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ─── Autenticação ────────────────────────────────────────
 
+enum UserRole {
+  ADMIN
+  PROJECT_OWNER
+  MEMBER
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String?   @unique
+  password          String    // bcrypt hash
+  name              String
+  role              UserRole  @default(MEMBER)
+  isDeactivated     Boolean   @default(false)
+  passwordChangedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sessions         Session[]
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
   workspaceMembers WorkspaceMember[]
   sentInvitations  Invitation[]      @relation("InvitationSender")
 }
+
+model Session {
+  id            String   @id @default(cuid())
+  accessToken   String   @unique
+  httpOnlyToken String   @unique
+  userId        String
+  remoteAddress String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Kanban ──────────────────────────────────────────────
 
 model Workspace {
   id        String   @id @default(cuid())
