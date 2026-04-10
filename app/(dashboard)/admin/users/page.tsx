@@ -218,9 +218,9 @@ export default function AdminUsersPage() {
                   onChange={(e) => setNewRole(e.target.value)}
                   className="w-full rounded-md bg-white/5 border border-white/10 text-white px-3 py-2 text-sm"
                 >
-                  <option value="MEMBER">Membro</option>
-                  <option value="PROJECT_OWNER">Project Owner</option>
-                  <option value="ADMIN">Admin</option>
+                  <option value="MEMBER" className="text-slate-900">Membro</option>
+                  <option value="PROJECT_OWNER" className="text-slate-900">Project Owner</option>
+                  <option value="ADMIN" className="text-slate-900">Admin</option>
                 </select>
               </div>
 
