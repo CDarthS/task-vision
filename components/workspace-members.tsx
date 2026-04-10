@@ -26,6 +26,8 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
@@ -59,8 +61,7 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
   }
 
   async function handleRemoveMember(userId: string) {
-    if (!confirm("Tem certeza que deseja remover este membro?")) return;
-
+    setRemovingId(userId);
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/members`, {
         method: "DELETE",
@@ -74,6 +75,9 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
       }
     } catch {
       // silently fail
+    } finally {
+      setRemovingId(null);
+      setConfirmRemoveId(null);
     }
   }
 
@@ -132,10 +136,12 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {members.map((member) => {
           const isOwner = member.user.id === ownerId;
+          const isConfirming = confirmRemoveId === member.user.id;
+          const isRemoving = removingId === member.user.id;
           return (
             <div
               key={member.id}
-              className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 group"
+              className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3"
             >
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-sm font-medium text-white shrink-0">
                 {member.user.name.charAt(0).toUpperCase()}
@@ -150,15 +156,33 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
               </div>
               {/* Botao remover — nao mostra para o dono */}
               {!isOwner && (
-                <button
-                  onClick={() => handleRemoveMember(member.user.id)}
-                  title="Remover membro"
-                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 transition-all cursor-pointer"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="shrink-0">
+                  {isConfirming ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleRemoveMember(member.user.id)}
+                        disabled={isRemoving}
+                        className="px-2 py-1 text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {isRemoving ? "..." : "Sim"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmRemoveId(null)}
+                        className="px-2 py-1 text-xs text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
+                      >
+                        Nao
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmRemoveId(member.user.id)}
+                      title="Remover membro"
+                      className="px-2 py-1 text-xs text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all cursor-pointer"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );
