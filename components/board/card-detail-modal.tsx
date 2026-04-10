@@ -30,6 +30,12 @@ interface LabelData {
   position: number;
 }
 
+interface MemberData {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface CardData {
   id: string;
   title: string;
@@ -48,6 +54,7 @@ interface CardDetailModalProps {
   listTitle: string;
   userName: string;
   boardId: string;
+  workspaceId: string;
   onClose: () => void;
   onUpdate: (card: CardData) => void;
   onDelete: (cardId: string) => void;
@@ -73,6 +80,7 @@ export function CardDetailModal({
   listTitle,
   userName,
   boardId,
+  workspaceId,
   onClose,
   onUpdate,
   onDelete,
@@ -107,14 +115,20 @@ export function CardDetailModal({
   const [newLabelColor, setNewLabelColor] = useState("");
   const [newLabelName, setNewLabelName] = useState("");
 
+  // Members state
+  const [cardMembers, setCardMembers] = useState<MemberData[]>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<MemberData[]>([]);
+  const [showMemberPicker, setShowMemberPicker] = useState(false);
+
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Carrega comentarios e checklists ao abrir
+  // Carrega comentarios, checklists, labels e membros ao abrir
   useEffect(() => {
     loadComments();
     loadChecklists();
     loadLabels();
+    loadMembers();
   }, [card.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadComments() {
@@ -151,6 +165,49 @@ export function CardDetailModal({
       if (cardRes.ok) setCardLabels(cardData.labels);
       if (boardRes.ok) setBoardLabels(boardData.labels);
     } catch { /* silently fail */ }
+  }
+
+  async function loadMembers() {
+    try {
+      const [cardRes, wsRes] = await Promise.all([
+        fetch(`/api/cards/${card.id}/members`),
+        fetch(`/api/workspaces/${workspaceId}`),
+      ]);
+      const cardData = await cardRes.json();
+      const wsData = await wsRes.json();
+      if (cardRes.ok) setCardMembers(cardData.members);
+      if (wsRes.ok && wsData.workspace?.members) {
+        setWorkspaceMembers(
+          wsData.workspace.members.map((m: { user: MemberData }) => m.user)
+        );
+      }
+    } catch { /* silently fail */ }
+  }
+
+  async function toggleMember(userId: string) {
+    const isAssigned = cardMembers.some((m) => m.id === userId);
+    if (isAssigned) {
+      // Optimistic remove
+      setCardMembers((prev) => prev.filter((m) => m.id !== userId));
+      try {
+        await fetch(`/api/cards/${card.id}/members`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        });
+      } catch { loadMembers(); }
+    } else {
+      // Optimistic add
+      const member = workspaceMembers.find((m) => m.id === userId);
+      if (member) setCardMembers((prev) => [...prev, member]);
+      try {
+        await fetch(`/api/cards/${card.id}/members`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        });
+      } catch { loadMembers(); }
+    }
   }
 
   async function toggleLabel(labelId: string) {
@@ -652,18 +709,103 @@ export function CardDetailModal({
 
             {/* Membros + Data Entrega */}
             <div className="flex items-center gap-6 mb-6">
-              <div>
+              <div className="relative">
                 <p className="text-xs text-gray-500 font-medium mb-1.5">Membros</p>
                 <div className="flex items-center gap-1">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xs font-bold text-white">
-                    {userInitials}
-                  </div>
-                  <button className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors cursor-pointer">
+                  {cardMembers.map((member) => {
+                    const initials = member.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2);
+                    const colors = [
+                      "from-red-500 to-red-600",
+                      "from-blue-500 to-blue-600",
+                      "from-green-500 to-green-600",
+                      "from-amber-500 to-amber-600",
+                      "from-purple-500 to-purple-600",
+                      "from-pink-500 to-pink-600",
+                    ];
+                    const colorIdx = member.name.charCodeAt(0) % colors.length;
+                    return (
+                      <div
+                        key={member.id}
+                        title={`${member.name} (${member.email})`}
+                        className={`w-8 h-8 rounded-full bg-gradient-to-br ${colors[colorIdx]} flex items-center justify-center text-xs font-bold text-white`}
+                      >
+                        {initials}
+                      </div>
+                    );
+                  })}
+                  {cardMembers.length === 0 && (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xs font-bold text-white">
+                      {userInitials}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowMemberPicker(!showMemberPicker)}
+                    className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors cursor-pointer"
+                  >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                   </button>
                 </div>
+
+                {/* Member Picker Popup */}
+                {showMemberPicker && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-10 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold text-gray-700">Membros do Workspace</h4>
+                      <button
+                        onClick={() => setShowMemberPicker(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    {workspaceMembers.length === 0 ? (
+                      <p className="text-xs text-gray-400 py-2">Nenhum membro encontrado</p>
+                    ) : (
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {workspaceMembers.map((member) => {
+                          const isAssigned = cardMembers.some((m) => m.id === member.id);
+                          const initials = member.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2);
+                          return (
+                            <button
+                              key={member.id}
+                              onClick={() => toggleMember(member.id)}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left transition-all cursor-pointer ${
+                                isAssigned ? "bg-violet-50 ring-1 ring-violet-300" : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                                {initials}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-gray-800 text-sm truncate">{member.name}</p>
+                                <p className="text-gray-400 text-[11px] truncate">{member.email}</p>
+                              </div>
+                              {isAssigned && (
+                                <svg className="w-4 h-4 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500 font-medium mb-1.5">Data Entrega</p>

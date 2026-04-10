@@ -225,6 +225,7 @@ export function BoardClient({ board, userName }: BoardClientProps) {
           listTitle={selectedListTitle}
           userName={userName}
           boardId={board.id}
+          workspaceId={board.workspaceId}
           onClose={() => setSelectedCard(null)}
           onUpdate={handleCardUpdate}
           onDelete={handleCardDelete}
