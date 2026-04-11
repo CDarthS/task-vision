@@ -506,6 +506,11 @@ Esta regra deve ser seguida por qualquer IA que tenha capacidade de abrir e inte
 - **Login:** `https://task-vision-production.up.railway.app/login`
 - **Admin:** `https://task-vision-production.up.railway.app/admin/users`
 
+### Credenciais de Admin em Producao (Railway):
+- **Email:** `admin@taskvision.com`
+- **Senha:** `Admin2026!`
+- **ATENCAO:** A senha NAO e `Admin123!`. Foi definida como `Admin2026!` nas variaveis de ambiente do Railway (DEFAULT_ADMIN_PASSWORD).
+
 ### Objetivo:
 O usuario nao sabe programar e depende da IA para verificar se as mudancas estao funcionando corretamente em producao. A IA deve ser proativa em testar via navegador sempre que possivel.
 
