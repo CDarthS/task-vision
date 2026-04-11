@@ -850,3 +850,39 @@ O usuario nao sabe programar e depende da IA para verificar se as mudancas estao
 |---|------|-------|----------|
 | 12 | `prisma db push` falha localmente | URL local (localhost:51213) aponta para proxy Prisma Accelerate nao rodando | Obtido URL publica do Railway via `railway variables --json` no servico Postgres |
 | 13 | Type error: `Record<string, unknown>` incompativel com Json do Prisma 7 | Prisma 7 usa `runtime.InputJsonValue` mais restritivo | Tipado como `Record<string, string>` + cast `as object` no prisma.create |
+
+---
+
+## 2026-04-11 — Fase 6.1: Notificacoes de Data Vencida (DUE_DATE_OVERDUE)
+
+### Problema
+Cards que vencem naturalmente (sem intervencao do usuario) nao geravam notificacao OVERDUE.
+Sem cron job externo no Railway, nao havia trigger para verificar datas expiradas.
+
+### Solucao: "Cron Virtual" via Polling do Frontend
+O proprio componente `NotificationBell` utiliza seu ciclo de polling (30s) como gatilho.
+A cada 4 ciclos (~2 minutos), chama `GET /api/notifications/cron-overdue` que varre todos os cards em atraso.
+
+### Arquivos Criados
+- `app/api/notifications/cron-overdue/route.ts` — endpoint "Cron Virtual":
+  - Query 1: busca cards com `dueDate < now` e `isDueCompleted = false`
+  - Query 2: para cada card, verifica quais membros JA receberam DUE_DATE_OVERDUE (idempotente)
+  - Create: gera notificacoes em batch apenas para membros nao notificados
+  - creatorId = null (sistema, nao um usuario)
+
+### Arquivos Modificados
+- `components/notification-bell.tsx`:
+  - Adicionado useRef `cronCounter` para contar ciclos de polling
+  - A cada 4 ciclos: `fetch("/api/notifications/cron-overdue")` fire-and-forget
+  - Na montagem: dispara cron imediatamente
+  - Visual: DUE_DATE_OVERDUE mostra texto em vermelho (`text-red-400`) + icone ⚠️
+
+- `app/api/cards/[id]/route.ts` (PATCH):
+  - Logica de due date agora verifica se data esta no passado
+  - Se passado: dispara `DUE_DATE_OVERDUE` em vez de `DUE_DATE_SOON`
+
+### Decisoes Tecnicas
+- **Idempotencia**: endpoint verifica existencia de notificacao antes de criar (nao duplica)
+- **Coexistencia**: DUE_DATE_SOON e DUE_DATE_OVERDUE podem coexistir na lista do user
+- **Custo zero**: sem cron externo, sem servicos adicionais — usa polling existente
+- **Frequencia**: ~2min (4 ciclos de 30s). Basta 1 user logado para disparar o check global

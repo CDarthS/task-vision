@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -76,8 +76,18 @@ export function NotificationBell() {
   const router = useRouter();
 
   // Polling: busca contagem de não lidas a cada 30s
+  // + dispara cron-overdue a cada ~2min (4 ciclos de 30s)
+  const cronCounter = useRef(0);
+
   const fetchCount = useCallback(async () => {
     try {
+      // Cron virtual: a cada 4 ciclos (~2min), verifica cards em atraso
+      cronCounter.current++;
+      if (cronCounter.current >= 4) {
+        cronCounter.current = 0;
+        fetch("/api/notifications/cron-overdue").catch(() => {});
+      }
+
       const res = await fetch("/api/notifications/count");
       if (res.ok) {
         const data = await res.json();
@@ -89,6 +99,8 @@ export function NotificationBell() {
   }, []);
 
   useEffect(() => {
+    // Dispara cron-overdue imediatamente na montagem
+    fetch("/api/notifications/cron-overdue").catch(() => {});
     fetchCount();
     const interval = setInterval(fetchCount, 30000);
     return () => clearInterval(interval);
@@ -246,9 +258,9 @@ export function NotificationBell() {
                   )}
 
                   {/* Due date formatado */}
-                  {n.type === "DUE_DATE_SOON" && n.data?.dueDate && (
-                    <p className="text-xs text-amber-400 mt-1">
-                      📅 {new Date(n.data.dueDate).toLocaleDateString("pt-BR", {
+                  {(n.type === "DUE_DATE_SOON" || n.type === "DUE_DATE_OVERDUE") && n.data?.dueDate && (
+                    <p className={`text-xs mt-1 ${n.type === "DUE_DATE_OVERDUE" ? "text-red-400" : "text-amber-400"}`}>
+                      {n.type === "DUE_DATE_OVERDUE" ? "⚠️ Vencido em" : "📅"} {new Date(n.data.dueDate).toLocaleDateString("pt-BR", {
                         day: "numeric",
                         month: "short",
                         hour: "2-digit",

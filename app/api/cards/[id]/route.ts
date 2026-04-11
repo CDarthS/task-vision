@@ -122,14 +122,16 @@ export async function PATCH(
 
     // Notificação: due date definido/alterado
     if (dueDate !== undefined && dueDate !== null) {
+      const parsedDate = new Date(dueDate);
+      const isOverdue = parsedDate.getTime() < Date.now();
       notifyCardMembers({
         excludeUserId: user.id,
         cardId: id,
         boardId: card.list.board.id,
-        type: "DUE_DATE_SOON",
+        type: isOverdue ? "DUE_DATE_OVERDUE" : "DUE_DATE_SOON",
         data: {
           cardTitle: card.title,
-          dueDate: new Date(dueDate).toISOString(),
+          dueDate: parsedDate.toISOString(),
         },
       });
     }
