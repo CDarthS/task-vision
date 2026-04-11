@@ -48,16 +48,27 @@ export default function AdminUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
 
-  // Form fields
+  // --- Estado: Criar usuário ---
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("MEMBER");
+
+  // --- Estado: Editar usuário ---
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editRole, setEditRole] = useState("MEMBER");
+  const [editPassword, setEditPassword] = useState("");
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -79,9 +90,10 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
+  // --- Criar usuário ---
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setCreateError("");
     setCreating(true);
 
     try {
@@ -100,11 +112,11 @@ export default function AdminUsersPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Erro ao criar usuario");
+        setCreateError(data.error || "Erro ao criar usuario");
         return;
       }
 
-      setDialogOpen(false);
+      setCreateDialogOpen(false);
       setNewName("");
       setNewEmail("");
       setNewUsername("");
@@ -112,12 +124,70 @@ export default function AdminUsersPage() {
       setNewRole("MEMBER");
       fetchUsers();
     } catch {
-      setError("Erro de conexao");
+      setCreateError("Erro de conexao");
     } finally {
       setCreating(false);
     }
   }
 
+  // --- Abrir modal de edição ---
+  function openEditDialog(user: UserItem) {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditUsername(user.username ?? "");
+    setEditRole(user.role);
+    setEditPassword("");
+    setEditError("");
+    setEditDialogOpen(true);
+  }
+
+  // --- Salvar edição ---
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditError("");
+    setSaving(true);
+
+    try {
+      const body: Record<string, string> = {
+        name: editName,
+        email: editEmail,
+        username: editUsername,
+        role: editRole,
+      };
+      if (editPassword.trim().length > 0) {
+        if (editPassword.trim().length < 6) {
+          setEditError("A senha deve ter pelo menos 6 caracteres");
+          return;
+        }
+        body.password = editPassword.trim();
+      }
+
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setEditError(data.error || "Erro ao salvar alterações");
+        return;
+      }
+
+      setEditDialogOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch {
+      setEditError("Erro de conexao");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // --- Ativar/Desativar ---
   async function toggleDeactivate(user: UserItem) {
     await fetch(`/api/users/${user.id}`, {
       method: "PATCH",
@@ -127,6 +197,7 @@ export default function AdminUsersPage() {
     fetchUsers();
   }
 
+  // --- Deletar ---
   async function handleDelete(user: UserItem) {
     if (!confirm(`Tem certeza que deseja deletar "${user.name}"?`)) return;
 
@@ -156,7 +227,8 @@ export default function AdminUsersPage() {
           </p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        {/* Botão + Modal: Criar Usuário */}
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger
             render={
               <Button className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white cursor-pointer" />
@@ -224,9 +296,9 @@ export default function AdminUsersPage() {
                 </select>
               </div>
 
-              {error && (
+              {createError && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
-                  {error}
+                  {createError}
                 </div>
               )}
 
@@ -241,6 +313,107 @@ export default function AdminUsersPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Modal: Editar Usuário */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => {
+        setEditDialogOpen(open);
+        if (!open) setEditingUser(null);
+      }}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>
+              Editar Usuario
+              {editingUser && (
+                <span className="ml-2 text-slate-400 text-sm font-normal">
+                  — {editingUser.name}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label className="text-slate-300">Nome *</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="bg-white/5 border-white/10 text-white"
+                placeholder="Nome completo"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">Email *</Label>
+              <Input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="bg-white/5 border-white/10 text-white"
+                placeholder="usuario@email.com"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">Username (opcional)</Label>
+              <Input
+                value={editUsername}
+                onChange={(e) => setEditUsername(e.target.value)}
+                className="bg-white/5 border-white/10 text-white"
+                placeholder="usuario123"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">Papel</Label>
+              <select
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value)}
+                className="w-full rounded-md bg-white/5 border border-white/10 text-white px-3 py-2 text-sm"
+              >
+                <option value="MEMBER" className="text-slate-900">Membro</option>
+                <option value="PROJECT_OWNER" className="text-slate-900">Project Owner</option>
+                <option value="ADMIN" className="text-slate-900">Admin</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">
+                Nova Senha{" "}
+                <span className="text-slate-500 text-xs font-normal">(opcional — deixe em branco para manter)</span>
+              </Label>
+              <Input
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                className="bg-white/5 border-white/10 text-white"
+                placeholder="Minimo 6 caracteres"
+                autoComplete="new-password"
+              />
+            </div>
+
+            {editError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+                {editError}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEditDialogOpen(false)}
+                className="flex-1 text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="flex-1 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white cursor-pointer"
+              >
+                {saving ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Users Table */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
@@ -297,6 +470,14 @@ export default function AdminUsersPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEditDialog(user)}
+                      className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 text-xs cursor-pointer"
+                    >
+                      Editar
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

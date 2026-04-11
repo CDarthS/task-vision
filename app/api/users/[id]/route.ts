@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/auth/get-current-user";
+import { hashPassword } from "@/lib/auth/password";
 
 // GET /api/users/:id
 export async function GET(
@@ -71,6 +72,34 @@ export async function PATCH(
         data.isDeactivated = body.isDeactivated;
       if (body.email !== undefined)
         data.email = body.email.toLowerCase().trim();
+      // Atualizar senha (opcional — apenas se fornecida)
+      if (body.password && body.password.trim().length >= 6) {
+        data.password = await hashPassword(body.password.trim());
+        data.passwordChangedAt = new Date();
+      }
+    }
+
+    // Validar duplicidade de email e username (excluindo o proprio usuario)
+    const orConditions: { email?: string; username?: string }[] = [];
+    if (data.email) orConditions.push({ email: data.email as string });
+    if (data.username) orConditions.push({ username: data.username as string });
+
+    if (orConditions.length > 0) {
+      const conflict = await prisma.user.findFirst({
+        where: {
+          AND: [
+            { id: { not: id } },
+            { OR: orConditions },
+          ],
+        },
+      });
+
+      if (conflict) {
+        return NextResponse.json(
+          { error: "Já existe outro usuário com este email ou username" },
+          { status: 409 }
+        );
+      }
     }
 
     const user = await prisma.user.update({
