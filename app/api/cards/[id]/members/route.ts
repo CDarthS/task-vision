@@ -16,7 +16,7 @@ export async function GET(
       where: { id },
       include: {
         list: { include: { board: { select: { workspaceId: true } } } },
-        members: { include: { user: { select: { id: true, name: true, email: true } } } },
+        members: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
       },
     });
 
@@ -73,7 +73,7 @@ export async function POST(
 
     const addedUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, image: true },
     });
 
     // Dispara notificação MEMBER_ADDED para o usuário adicionado

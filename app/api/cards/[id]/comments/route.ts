@@ -44,7 +44,7 @@ export async function GET(
     const comments = await prisma.comment.findMany({
       where: { cardId: id },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, image: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -109,7 +109,7 @@ export async function POST(
         userId: user.id,
       },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, image: true } },
       },
     });
 

@@ -27,7 +27,7 @@ interface Notification {
   data: NotificationData;
   isRead: boolean;
   createdAt: string;
-  creator: { id: string; name: string; email: string } | null;
+  creator: { id: string; name: string; email: string; image?: string | null } | null;
   card: { id: string; title: string } | null;
   board: { id: string; title: string } | null;
 }
@@ -253,10 +253,29 @@ export function NotificationBell() {
                     : "border-l-2 border-transparent"
                 }`}
               >
-                {/* Ícone do tipo */}
-                <span className="text-lg mt-0.5 shrink-0">
-                  {NOTIFICATION_ICONS[n.type] || "🔔"}
-                </span>
+                {/* Avatar do criador ou Ícone do tipo */}
+                <div className="relative mt-0.5 shrink-0">
+                  {n.creator ? (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white overflow-hidden shadow-sm">
+                      {n.creator.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={n.creator.image} alt={n.creator.name} className="w-full h-full object-cover" />
+                      ) : (
+                        n.creator.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-lg">
+                      {NOTIFICATION_ICONS[n.type] || "🔔"}
+                    </div>
+                  )}
+                  {/* Badge pequeno do tipo de notificação */}
+                  {n.creator && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-800 rounded-full flex items-center justify-center text-[10px] border border-slate-700">
+                      {NOTIFICATION_ICONS[n.type] || "🔔"}
+                    </div>
+                  )}
+                </div>
 
                 {/* Conteúdo */}
                 <div className="flex-1 min-w-0">

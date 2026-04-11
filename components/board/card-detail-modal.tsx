@@ -6,7 +6,7 @@ interface CommentData {
   id: string;
   text: string;
   createdAt: string;
-  user: { id: string; name: string; email: string };
+  user: { id: string; name: string; email: string; image?: string | null };
 }
 
 interface ChecklistItemData {
@@ -16,7 +16,7 @@ interface ChecklistItemData {
   position: number;
   assigneeId?: string | null;
   dueDate?: string | null;
-  assignee?: { id: string; name: string; email: string } | null;
+  assignee?: { id: string; name: string; email: string; image?: string | null } | null;
 }
 
 interface ChecklistData {
@@ -37,6 +37,7 @@ interface MemberData {
   id: string;
   name: string;
   email: string;
+  image?: string | null;
 }
 
 interface CardData {
@@ -795,9 +796,14 @@ export function CardDetailModal({
                       <div
                         key={member.id}
                         title={`${member.name} (${member.email})`}
-                        className={`w-8 h-8 rounded-full bg-gradient-to-br ${colors[colorIdx]} flex items-center justify-center text-xs font-bold text-white`}
+                        className={`w-8 h-8 rounded-full bg-gradient-to-br ${colors[colorIdx]} flex items-center justify-center text-xs font-bold text-white overflow-hidden shadow-sm`}
                       >
-                        {initials}
+                        {member.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
+                        ) : (
+                          initials
+                        )}
                       </div>
                     );
                   })}
@@ -850,8 +856,13 @@ export function CardDetailModal({
                                 isAssigned ? "bg-violet-50 ring-1 ring-violet-300" : "hover:bg-gray-50"
                               }`}
                             >
-                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                                {initials}
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden shadow-sm">
+                                {member.image ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  initials
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-gray-800 text-sm truncate">{member.name}</p>
@@ -1086,19 +1097,24 @@ export function CardDetailModal({
                             {item.assignee && (
                               <div
                                 title={`Responsável: ${item.assignee.name}`}
-                                className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0 cursor-pointer"
+                                className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0 cursor-pointer overflow-hidden shadow-sm"
                                 onClick={() =>
                                   setActiveItemMemberPicker(
                                     activeItemMemberPicker === item.id ? null : item.id
                                   )
                                 }
                               >
-                                {item.assignee.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .toUpperCase()
-                                  .slice(0, 2)}
+                                {item.assignee.image ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={item.assignee.image} alt={item.assignee.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  item.assignee.name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)
+                                )}
                               </div>
                             )}
 
@@ -1194,8 +1210,13 @@ export function CardDetailModal({
                                         isAssigned ? "bg-indigo-50 ring-1 ring-indigo-300" : "hover:bg-gray-50"
                                       }`}
                                     >
-                                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-                                        {initials}
+                                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0 overflow-hidden shadow-sm">
+                                        {member.image ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                          initials
+                                        )}
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="text-gray-800 text-xs truncate">{member.name}</p>
@@ -1338,13 +1359,18 @@ export function CardDetailModal({
               )}
               {comments.map((comment) => (
                 <div key={comment.id} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5">
-                    {comment.user.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2)}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-sm">
+                    {comment.user.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={comment.user.image} alt={comment.user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      comment.user.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2)
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-700">{comment.user.name}</p>

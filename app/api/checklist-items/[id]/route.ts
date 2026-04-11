@@ -76,7 +76,7 @@ export async function PATCH(
       where: { id },
       data: updateData,
       include: {
-        assignee: { select: { id: true, name: true, email: true } },
+        assignee: { select: { id: true, name: true, email: true, image: true } },
       },
     });
 

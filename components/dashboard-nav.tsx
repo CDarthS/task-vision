@@ -12,10 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { NotificationBell } from "@/components/notification-bell";
+import { UserProfileModal } from "@/components/user-profile-modal";
 import type { SafeUser } from "@/lib/auth/get-current-user";
+import { useState } from "react";
 
 export function DashboardNav({ user }: { user: SafeUser }) {
   const router = useRouter();
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "DELETE" });
@@ -81,14 +84,19 @@ export function DashboardNav({ user }: { user: SafeUser }) {
                 />
               }
             >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-medium text-white">
-                {user.name.charAt(0).toUpperCase()}
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-medium text-white overflow-hidden shadow-sm">
+                {user.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  user.name.charAt(0).toUpperCase()
+                )}
               </div>
               <span className="text-sm">{user.name}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="bg-slate-900 border-white/10 text-slate-300"
+              className="bg-slate-900 border-white/10 text-slate-300 min-w-48"
             >
               <div className="px-3 py-2">
                 <p className="text-sm font-medium text-white">{user.name}</p>
@@ -102,6 +110,13 @@ export function DashboardNav({ user }: { user: SafeUser }) {
               </div>
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
+                onClick={() => setProfileModalOpen(true)}
+                className="focus:bg-white/10 cursor-pointer"
+              >
+                Meu Perfil
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuItem
                 onClick={handleLogout}
                 className="text-red-400 focus:text-red-300 focus:bg-red-500/10 cursor-pointer"
               >
@@ -111,6 +126,17 @@ export function DashboardNav({ user }: { user: SafeUser }) {
           </DropdownMenu>
         </div>
       </div>
+
+      <UserProfileModal 
+        user={{
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image
+        }}
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+      />
     </header>
   );
 }

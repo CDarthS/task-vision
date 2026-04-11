@@ -10,6 +10,7 @@ interface MemberItem {
     id: string;
     name: string;
     email: string;
+    image?: string | null;
   };
 }
 
@@ -143,8 +144,13 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
               key={member.id}
               className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3"
             >
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-sm font-medium text-white shrink-0">
-                {member.user.name.charAt(0).toUpperCase()}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-sm font-medium text-white shrink-0 overflow-hidden shadow-sm">
+                {member.user.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={member.user.image} alt={member.user.name} className="w-full h-full object-cover" />
+                ) : (
+                  member.user.name.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-white truncate">

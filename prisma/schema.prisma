@@ -39,6 +39,7 @@ model User {
   role              UserRole  @default(MEMBER)
   isDeactivated     Boolean   @default(false)
   passwordChangedAt DateTime?
+  image             String?   @db.Text
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

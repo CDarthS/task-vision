@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const notifications = await prisma.notification.findMany({
       where,
       include: {
-        creator: { select: { id: true, name: true, email: true } },
+        creator: { select: { id: true, name: true, email: true, image: true } },
         card: { select: { id: true, title: true } },
         board: { select: { id: true, title: true } },
       },

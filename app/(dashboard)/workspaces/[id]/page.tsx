@@ -36,7 +36,7 @@ export default async function WorkspacePage({
       members: {
         include: {
           user: {
-            select: { id: true, name: true, email: true },
+            select: { id: true, name: true, email: true, image: true },
           },
         },
       },

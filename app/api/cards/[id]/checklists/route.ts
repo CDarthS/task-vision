@@ -43,7 +43,7 @@ export async function GET(
         items: {
           orderBy: { position: "asc" },
           include: {
-            assignee: { select: { id: true, name: true, email: true } },
+            assignee: { select: { id: true, name: true, email: true, image: true } },
           },
         },
       },
