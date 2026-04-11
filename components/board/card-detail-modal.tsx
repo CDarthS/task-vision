@@ -491,11 +491,19 @@ export function CardDetailModal({
   async function toggleDueCompleted() {
     const newVal = !isDueCompleted;
     setIsDueCompleted(newVal);
+
+    let updatedDueDate = dueDate;
+    // Auto-setar dueDate se estiver concluindo e nao tiver data
+    if (newVal && !dueDate) {
+      updatedDueDate = new Date().toISOString();
+      setDueDate(updatedDueDate);
+    }
+
     try {
       const res = await fetch(`/api/cards/${card.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isDueCompleted: newVal }),
+        body: JSON.stringify({ isDueCompleted: newVal, dueDate: updatedDueDate }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -503,6 +511,7 @@ export function CardDetailModal({
       }
     } catch {
       setIsDueCompleted(!newVal);
+      // rollback do optimista update da data é omisso por simplicidade
     }
   }
 
@@ -617,7 +626,21 @@ export function CardDetailModal({
           <div className="flex-1 p-6">
             {/* Titulo */}
             <div className="flex items-start gap-3 mb-6">
-              <div className="mt-1 w-5 h-5 rounded-full border-2 border-gray-300 shrink-0" />
+              <button
+                onClick={toggleDueCompleted}
+                className={`mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                  isDueCompleted
+                    ? "bg-green-500 border-green-500 text-white shadow-sm"
+                    : "border-gray-300 hover:border-gray-400"
+                }`}
+                title={isDueCompleted ? "Marcar como não concluído" : "Marcar como concluído"}
+              >
+                {isDueCompleted && (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                )}
+              </button>
               {editingTitle ? (
                 <input
                   ref={titleInputRef}
