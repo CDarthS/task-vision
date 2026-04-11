@@ -21,11 +21,13 @@ enum UserRole {
 }
 
 enum NotificationType {
-  COMMENT_ADDED    // Alguém comentou num card onde o user é membro
-  MEMBER_ADDED     // O user foi adicionado como membro de um card
-  DUE_DATE_SOON    // Card com due date vencendo em 24h
-  DUE_DATE_OVERDUE // Card com due date vencido
-  CARD_MOVED       // Card onde o user é membro foi movido de lista
+  COMMENT_ADDED           // Alguém comentou num card onde o user é membro
+  MEMBER_ADDED            // O user foi adicionado como membro de um card
+  DUE_DATE_SOON           // Card com due date vencendo em 24h
+  DUE_DATE_OVERDUE        // Card com due date vencido
+  CARD_MOVED              // Card onde o user é membro foi movido de lista
+  CHECKLIST_ITEM_ASSIGNED // User foi atribuído como responsável por um item de checklist
+  CHECKLIST_ITEM_OVERDUE  // Item de checklist com dueDate vencido
 }
 
 model User {
@@ -49,8 +51,9 @@ model User {
   comments         Comment[]         @relation("CommentAuthor")
   activities       Activity[]        @relation("ActivityUser")
   attachments      Attachment[]      @relation("AttachmentCreator")
-  receivedNotifications Notification[] @relation("NotificationReceiver")
-  createdNotifications  Notification[] @relation("NotificationCreator")
+  receivedNotifications    Notification[]  @relation("NotificationReceiver")
+  createdNotifications     Notification[]  @relation("NotificationCreator")
+  assignedChecklistItems   ChecklistItem[] @relation("ChecklistItemAssignee")
 }
 
 model Session {
@@ -209,17 +212,22 @@ model Checklist {
 }
 
 model ChecklistItem {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   checklistId String
   title       String
-  isCompleted Boolean  @default(false)
-  position    Float    @default(1000)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isCompleted Boolean   @default(false)
+  position    Float     @default(1000)
+  assigneeId  String?   // Responsável pelo item (1:1)
+  dueDate     DateTime? // Prazo específico do item
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  assignee  User?     @relation("ChecklistItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
   @@index([checklistId])
+  @@index([assigneeId])
+  @@index([dueDate])
 }
 
 // ─── Anexos ──────────────────────────────────────────────

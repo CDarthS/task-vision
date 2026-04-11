@@ -3,16 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 
 // GET /api/notifications/cron-overdue
-// "Cron Virtual" — verifica todos os cards em atraso e cria notificações
-// DUE_DATE_OVERDUE para membros que ainda não foram notificados.
+// "Cron Virtual" — verifica cards E itens de checklist em atraso.
 // Chamado pelo polling do NotificationBell a cada ~2 minutos.
 export async function GET() {
   try {
     await requireUser(); // Apenas usuários autenticados podem acionar
 
     const now = new Date();
+    let totalCreated = 0;
 
-    // 1. Buscar todos os cards em atraso (dueDate no passado, não completado)
+    // ── PARTE 1: Cards em atraso ─────────────────────────────────────────────
     const overdueCards = await prisma.card.findMany({
       where: {
         dueDate: { lt: now },
@@ -33,19 +33,12 @@ export async function GET() {
       },
     });
 
-    if (overdueCards.length === 0) {
-      return NextResponse.json({ processed: 0 });
-    }
-
-    let totalCreated = 0;
-
     for (const card of overdueCards) {
       if (card.members.length === 0) continue;
 
       const memberUserIds = card.members.map((m) => m.userId);
       const boardId = card.list.board.id;
 
-      // 2. Verificar quais membros já receberam DUE_DATE_OVERDUE para este card
       const existingNotifications = await prisma.notification.findMany({
         where: {
           cardId: card.id,
@@ -56,17 +49,14 @@ export async function GET() {
       });
 
       const alreadyNotifiedIds = new Set(existingNotifications.map((n) => n.userId));
-
-      // 3. Filtrar apenas quem ainda não foi notificado
       const newRecipientIds = memberUserIds.filter((id) => !alreadyNotifiedIds.has(id));
 
       if (newRecipientIds.length === 0) continue;
 
-      // 4. Criar notificações em batch
       const result = await prisma.notification.createMany({
         data: newRecipientIds.map((userId) => ({
           userId,
-          creatorId: null, // Sistema, não um user
+          creatorId: null,
           cardId: card.id,
           boardId,
           type: "DUE_DATE_OVERDUE" as const,
@@ -80,7 +70,78 @@ export async function GET() {
       totalCreated += result.count;
     }
 
-    return NextResponse.json({ processed: overdueCards.length, created: totalCreated });
+    // ── PARTE 2: Itens de Checklist em atraso ───────────────────────────────
+    const overdueItems = await prisma.checklistItem.findMany({
+      where: {
+        dueDate: { lt: now },
+        isCompleted: false,
+        assigneeId: { not: null }, // Só processa itens com responsável
+      },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        assigneeId: true,
+        checklist: {
+          select: {
+            card: {
+              select: {
+                id: true,
+                title: true,
+                list: {
+                  select: {
+                    board: { select: { id: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const item of overdueItems) {
+      if (!item.assigneeId) continue;
+
+      const card = item.checklist.card;
+      const boardId = card.list.board.id;
+
+      // Idempotente: verifica se já foi notificado para este item
+      const existing = await prisma.notification.findFirst({
+        where: {
+          userId: item.assigneeId,
+          type: "CHECKLIST_ITEM_OVERDUE",
+          // Armazenamos o itemId em data para evitar duplicatas
+          data: { path: ["itemId"], equals: item.id },
+        },
+      });
+
+      if (existing) continue;
+
+      await prisma.notification.create({
+        data: {
+          userId: item.assigneeId,
+          creatorId: null,
+          cardId: card.id,
+          boardId,
+          type: "CHECKLIST_ITEM_OVERDUE",
+          data: {
+            itemId: item.id,
+            itemTitle: item.title,
+            cardTitle: card.title,
+            dueDate: item.dueDate!.toISOString(),
+          } as object,
+        },
+      });
+
+      totalCreated += 1;
+    }
+
+    return NextResponse.json({
+      processedCards: overdueCards.length,
+      processedItems: overdueItems.length,
+      created: totalCreated,
+    });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {
       return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });

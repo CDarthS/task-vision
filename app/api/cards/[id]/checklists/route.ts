@@ -40,7 +40,12 @@ export async function GET(
     const checklists = await prisma.checklist.findMany({
       where: { cardId: id },
       include: {
-        items: { orderBy: { position: "asc" } },
+        items: {
+          orderBy: { position: "asc" },
+          include: {
+            assignee: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
       orderBy: { position: "asc" },
     });

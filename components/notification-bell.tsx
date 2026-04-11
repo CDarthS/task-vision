@@ -16,6 +16,9 @@ interface NotificationData {
   dueDate?: string;
   fromList?: string;
   toList?: string;
+  itemTitle?: string;
+  assignerName?: string;
+  itemId?: string;
 }
 
 interface Notification {
@@ -35,6 +38,8 @@ const NOTIFICATION_ICONS: Record<string, string> = {
   DUE_DATE_SOON: "📅",
   DUE_DATE_OVERDUE: "⏰",
   CARD_MOVED: "🔄",
+  CHECKLIST_ITEM_ASSIGNED: "☑️",
+  CHECKLIST_ITEM_OVERDUE: "⚠️",
 };
 
 function getNotificationText(n: Notification): string {
@@ -52,6 +57,15 @@ function getNotificationText(n: Notification): string {
       return `"${cardTitle}" está com prazo vencido`;
     case "CARD_MOVED":
       return `${creatorName} moveu "${cardTitle}" de ${n.data?.fromList || "?"} para ${n.data?.toList || "?"}`;
+    case "CHECKLIST_ITEM_ASSIGNED": {
+      const itemTitle = n.data?.itemTitle || "um item";
+      const assigner = n.data?.assignerName || creatorName;
+      return `${assigner} atribuiu você ao item "${itemTitle}" em "${cardTitle}"`;
+    }
+    case "CHECKLIST_ITEM_OVERDUE": {
+      const itemTitle = n.data?.itemTitle || "um item";
+      return `Item "${itemTitle}" em "${cardTitle}" está com prazo vencido`;
+    }
     default:
       return `Nova notificação sobre "${cardTitle}"`;
   }
@@ -261,6 +275,30 @@ export function NotificationBell() {
                   {(n.type === "DUE_DATE_SOON" || n.type === "DUE_DATE_OVERDUE") && n.data?.dueDate && (
                     <p className={`text-xs mt-1 ${n.type === "DUE_DATE_OVERDUE" ? "text-red-400" : "text-amber-400"}`}>
                       {n.type === "DUE_DATE_OVERDUE" ? "⚠️ Vencido em" : "📅"} {new Date(n.data.dueDate).toLocaleDateString("pt-BR", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  )}
+
+                  {/* Prazo vencido de item de checklist */}
+                  {n.type === "CHECKLIST_ITEM_OVERDUE" && n.data?.dueDate && (
+                    <p className="text-xs mt-1 text-red-400">
+                      ⚠️ Vencido em {new Date(n.data.dueDate).toLocaleDateString("pt-BR", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  )}
+
+                  {/* Prazo do item atribuído */}
+                  {n.type === "CHECKLIST_ITEM_ASSIGNED" && n.data?.dueDate && (
+                    <p className="text-xs mt-1 text-indigo-400">
+                      📅 Prazo: {new Date(n.data.dueDate).toLocaleDateString("pt-BR", {
                         day: "numeric",
                         month: "short",
                         hour: "2-digit",

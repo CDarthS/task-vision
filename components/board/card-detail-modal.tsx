@@ -14,6 +14,9 @@ interface ChecklistItemData {
   title: string;
   isCompleted: boolean;
   position: number;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+  assignee?: { id: string; name: string; email: string } | null;
 }
 
 interface ChecklistData {
@@ -119,6 +122,11 @@ export function CardDetailModal({
   const [cardMembers, setCardMembers] = useState<MemberData[]>([]);
   const [workspaceMembers, setWorkspaceMembers] = useState<MemberData[]>([]);
   const [showMemberPicker, setShowMemberPicker] = useState(false);
+
+  // Checklist item assignee/dueDate pickers
+  const [activeItemMemberPicker, setActiveItemMemberPicker] = useState<string | null>(null); // itemId
+  const [activeItemDatePicker, setActiveItemDatePicker] = useState<string | null>(null); // itemId
+  const [itemDateInputs, setItemDateInputs] = useState<Record<string, string>>({}); // itemId -> ISO string
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -331,6 +339,61 @@ export function CardDetailModal({
         );
       }
     } catch { /* silently fail */ }
+  }
+
+  async function setItemAssignee(checklistId: string, itemId: string, assigneeId: string | null) {
+    // Optimistic update
+    setChecklists((prev) =>
+      prev.map((c) =>
+        c.id === checklistId
+          ? {
+              ...c,
+              items: c.items.map((i) =>
+                i.id === itemId
+                  ? {
+                      ...i,
+                      assigneeId,
+                      assignee: assigneeId
+                        ? (workspaceMembers.find((m) => m.id === assigneeId) ?? null)
+                        : null,
+                    }
+                  : i
+              ),
+            }
+          : c
+      )
+    );
+    setActiveItemMemberPicker(null);
+    try {
+      await fetch(`/api/checklist-items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId }),
+      });
+    } catch {
+      loadChecklists(); // revert
+    }
+  }
+
+  async function setItemDueDate(checklistId: string, itemId: string, dueDate: string | null) {
+    // Optimistic update
+    setChecklists((prev) =>
+      prev.map((c) =>
+        c.id === checklistId
+          ? { ...c, items: c.items.map((i) => (i.id === itemId ? { ...i, dueDate } : i)) }
+          : c
+      )
+    );
+    setActiveItemDatePicker(null);
+    try {
+      await fetch(`/api/checklist-items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate }),
+      });
+    } catch {
+      loadChecklists(); // revert
+    }
   }
 
   // Fecha ao clicar no overlay
@@ -979,35 +1042,223 @@ export function CardDetailModal({
 
                   {/* Items */}
                   <div className="space-y-1 mb-2">
-                    {checklist.items.map((item) => (
-                      <div key={item.id} className="flex items-center gap-2 group py-1 px-1 rounded hover:bg-gray-50 transition-colors">
-                        <button
-                          onClick={() => toggleChecklistItem(checklist.id, item.id, item.isCompleted)}
-                          className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
-                            item.isCompleted
-                              ? 'bg-violet-500 border-violet-500 text-white'
-                              : 'border-gray-300 hover:border-violet-400'
-                          }`}
-                        >
-                          {item.isCompleted && (
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
+                    {checklist.items.map((item) => {
+                      const itemIsOverdue =
+                        item.dueDate &&
+                        !item.isCompleted &&
+                        new Date(item.dueDate) < new Date();
+                      const formattedItemDate = item.dueDate
+                        ? new Date(item.dueDate).toLocaleDateString("pt-BR", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : null;
+
+                      return (
+                        <div key={item.id} className="group">
+                          <div className="flex items-center gap-2 py-1 px-1 rounded hover:bg-gray-50 transition-colors">
+                            {/* Checkbox */}
+                            <button
+                              onClick={() => toggleChecklistItem(checklist.id, item.id, item.isCompleted)}
+                              className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                                item.isCompleted
+                                  ? "bg-violet-500 border-violet-500 text-white"
+                                  : "border-gray-300 hover:border-violet-400"
+                              }`}
+                            >
+                              {item.isCompleted && (
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                              )}
+                            </button>
+
+                            {/* Texto */}
+                            <span className={`flex-1 text-sm ${
+                              item.isCompleted ? "text-gray-400 line-through" : "text-gray-700"
+                            }`}>
+                              {item.title}
+                            </span>
+
+                            {/* Assignee mini-badge */}
+                            {item.assignee && (
+                              <div
+                                title={`Responsável: ${item.assignee.name}`}
+                                className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0 cursor-pointer"
+                                onClick={() =>
+                                  setActiveItemMemberPicker(
+                                    activeItemMemberPicker === item.id ? null : item.id
+                                  )
+                                }
+                              >
+                                {item.assignee.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                                  .slice(0, 2)}
+                              </div>
+                            )}
+
+                            {/* Date mini-badge */}
+                            {item.dueDate && (
+                              <span
+                                title={`Prazo: ${formattedItemDate}`}
+                                onClick={() =>
+                                  setActiveItemDatePicker(
+                                    activeItemDatePicker === item.id ? null : item.id
+                                  )
+                                }
+                                className={`text-[10px] font-medium px-1.5 py-0.5 rounded cursor-pointer ${
+                                  item.isCompleted
+                                    ? "bg-green-100 text-green-700"
+                                    : itemIsOverdue
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {formattedItemDate}
+                              </span>
+                            )}
+
+                            {/* Botões de ação (sempre visíveis minimizados) */}
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {/* Botão assignee */}
+                              <button
+                                title={item.assignee ? "Trocar responsável" : "Atribuir responsável"}
+                                onClick={() =>
+                                  setActiveItemMemberPicker(
+                                    activeItemMemberPicker === item.id ? null : item.id
+                                  )
+                                }
+                                className="p-0.5 text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer rounded"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                </svg>
+                              </button>
+
+                              {/* Botão data */}
+                              <button
+                                title={item.dueDate ? "Editar prazo" : "Definir prazo"}
+                                onClick={() => {
+                                  setItemDateInputs((prev) => ({
+                                    ...prev,
+                                    [item.id]: item.dueDate
+                                      ? new Date(item.dueDate).toISOString().slice(0, 16)
+                                      : "",
+                                  }));
+                                  setActiveItemDatePicker(
+                                    activeItemDatePicker === item.id ? null : item.id
+                                  );
+                                }}
+                                className="p-0.5 text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer rounded"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                                </svg>
+                              </button>
+
+                              {/* Botão deletar item */}
+                              <button
+                                onClick={() => deleteChecklistItem(checklist.id, item.id)}
+                                className="p-0.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer rounded"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Popover: Assignee picker do item */}
+                          {activeItemMemberPicker === item.id && (
+                            <div className="ml-6 mt-1 mb-2 p-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10">
+                              <p className="text-[10px] text-gray-400 font-medium mb-1.5 px-1">Atribuir responsável</p>
+                              <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                                {workspaceMembers.map((member) => {
+                                  const isAssigned = item.assigneeId === member.id;
+                                  const initials = member.name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2);
+                                  return (
+                                    <button
+                                      key={member.id}
+                                      onClick={() => setItemAssignee(checklist.id, item.id, isAssigned ? null : member.id)}
+                                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left transition-all cursor-pointer ${
+                                        isAssigned ? "bg-indigo-50 ring-1 ring-indigo-300" : "hover:bg-gray-50"
+                                      }`}
+                                    >
+                                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                                        {initials}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-gray-800 text-xs truncate">{member.name}</p>
+                                      </div>
+                                      {isAssigned && (
+                                        <svg className="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           )}
-                        </button>
-                        <span className={`flex-1 text-sm ${item.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                          {item.title}
-                        </span>
-                        <button
-                          onClick={() => deleteChecklistItem(checklist.id, item.id)}
-                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all cursor-pointer p-0.5"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+
+                          {/* Popover: Date picker do item */}
+                          {activeItemDatePicker === item.id && (
+                            <div className="ml-6 mt-1 mb-2 p-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10">
+                              <p className="text-[10px] text-gray-400 font-medium mb-1.5 px-1">Prazo do item</p>
+                              <input
+                                type="datetime-local"
+                                value={itemDateInputs[item.id] ?? ""}
+                                onChange={(e) =>
+                                  setItemDateInputs((prev) => ({ ...prev, [item.id]: e.target.value }))
+                                }
+                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-indigo-400"
+                              />
+                              <div className="flex gap-1.5 mt-1.5">
+                                <button
+                                  onClick={() =>
+                                    setItemDueDate(
+                                      checklist.id,
+                                      item.id,
+                                      itemDateInputs[item.id]
+                                        ? new Date(itemDateInputs[item.id]).toISOString()
+                                        : null
+                                    )
+                                  }
+                                  className="flex-1 px-2 py-1 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer"
+                                >
+                                  Salvar
+                                </button>
+                                {item.dueDate && (
+                                  <button
+                                    onClick={() => setItemDueDate(checklist.id, item.id, null)}
+                                    className="px-2 py-1 text-red-600 text-xs border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer"
+                                  >
+                                    Remover
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => setActiveItemDatePicker(null)}
+                                  className="px-2 py-1 text-gray-500 text-xs hover:text-gray-700 cursor-pointer"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Add item input */}
