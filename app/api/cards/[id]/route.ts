@@ -120,8 +120,13 @@ export async function PATCH(
       });
     }
 
+    // Verifica se a data realmente mudou para evitar disparos repetidos
+    const oldDateStr = card.dueDate ? card.dueDate.toISOString() : null;
+    const newDateStr = dueDate ? new Date(dueDate).toISOString() : null;
+    const isDueDateChanged = oldDateStr !== newDateStr;
+
     // Notificação: due date definido/alterado
-    if (dueDate !== undefined && dueDate !== null) {
+    if (isDueDateChanged && dueDate !== undefined && dueDate !== null) {
       const parsedDate = new Date(dueDate);
       const isOverdue = parsedDate.getTime() < Date.now();
       notifyCardMembers({
