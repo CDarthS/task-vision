@@ -74,10 +74,19 @@ export async function notifyCardMembers(params: {
       select: { userId: true },
     });
 
-    // Filtra o autor da ação
-    const recipientIds = cardMembers
-      .map((m) => m.userId)
-      .filter((id) => id !== excludeUserId);
+    const cardWatchers = await prisma.cardWatcher.findMany({
+      where: { cardId },
+      select: { userId: true },
+    });
+
+    // Filtra o autor da ação e une members e watchers em um Set único
+    const combinedIds = new Set([
+      ...cardMembers.map((m) => m.userId),
+      ...cardWatchers.map((w) => w.userId),
+    ]);
+    combinedIds.delete(excludeUserId);
+
+    const recipientIds = Array.from(combinedIds);
 
     if (recipientIds.length === 0) return [];
 

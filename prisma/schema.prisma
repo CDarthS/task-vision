@@ -51,6 +51,7 @@ model User {
   sentInvitations  Invitation[]      @relation("InvitationSender")
   createdCards     Card[]            @relation("CardCreator")
   cardMemberships  CardMember[]      @relation("CardMemberUser")
+  watchedCards     CardWatcher[]     @relation("CardWatcherUser")
   comments         Comment[]         @relation("CommentAuthor")
   activities       Activity[]        @relation("ActivityUser")
   attachments      Attachment[]      @relation("AttachmentCreator")
@@ -163,6 +164,7 @@ model Card {
   checklists    Checklist[]
   attachments   Attachment[]
   members       CardMember[]
+  watchers      CardWatcher[]
   comments      Comment[]
   activities    Activity[]
   notifications Notification[]
@@ -263,6 +265,21 @@ model CardMember {
   user User @relation("CardMemberUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([cardId, userId])
+}
+
+// ─── Seguidores do Card ──────────────────────────────────
+
+model CardWatcher {
+  id        String   @id @default(cuid())
+  cardId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user User @relation("CardWatcherUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, userId])
+  @@index([userId])
 }
 
 // ─── Comentários ─────────────────────────────────────────

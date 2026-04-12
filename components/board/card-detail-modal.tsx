@@ -214,6 +214,12 @@ export function CardDetailModal({
   const [activities, setActivities] = useState<ActivityData[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
 
+  // Watch state
+  const [isWatching, setIsWatching] = useState<boolean>(() => {
+    return card.watchers ? card.watchers.some(w => w.userId === userId) : false;
+  });
+  const [togglingWatch, setTogglingWatch] = useState(false);
+
   // Copy state
   const [showCopyPopover, setShowCopyPopover] = useState(false);
   const [copyTitle, setCopyTitle] = useState(card.title);
@@ -360,6 +366,25 @@ export function CardDetailModal({
           body: JSON.stringify({ userId }),
         });
       } catch { loadMembers(); }
+    }
+  }
+
+  // Toggle Watch
+  async function toggleWatch() {
+    setTogglingWatch(true);
+    const newValue = !isWatching;
+    setIsWatching(newValue);
+    
+    try {
+      const res = await fetch(`/api/cards/${card.id}/watch`, { method: "POST" });
+      if (!res.ok) throw new Error("Falha ao seguir cartão");
+      const data = await res.json();
+      setIsWatching(data.watching);
+    } catch {
+      // Revert if error
+      setIsWatching(!newValue);
+    } finally {
+      setTogglingWatch(false);
     }
   }
 
@@ -987,6 +1012,23 @@ export function CardDetailModal({
             </span>
           </div>
           <div className="flex items-center gap-1">
+            {isWatching && (
+              <button 
+                onClick={toggleWatch}
+                className="p-2 text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors cursor-pointer flex items-center shadow-sm border border-violet-100" 
+                title="Parar de seguir cartão"
+              >
+                <div className="relative flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  </svg>
+                  <div className="absolute -right-1 -top-1 bg-white rounded-full">
+                    <svg className="w-2.5 h-2.5 text-violet-600" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  </div>
+                </div>
+              </button>
+            )}
             <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer" title="Imagem de capa">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
@@ -1052,14 +1094,35 @@ export function CardDetailModal({
                     Criar template
                   </button>
                   <button
-                    disabled
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      toggleWatch();
+                    }}
+                    disabled={togglingWatch}
+                    className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors cursor-pointer ${
+                      isWatching ? "text-violet-700 bg-violet-50 hover:bg-violet-100" : "text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    </svg>
-                    Seguir
+                    {isWatching ? (
+                      <>
+                        <svg className="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                        Seguindo
+                        <div className="ml-auto bg-violet-500 text-white rounded-[4px] w-4 h-4 flex items-center justify-center">
+                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                        Seguir
+                      </>
+                    )}
                   </button>
                   <button
                     disabled

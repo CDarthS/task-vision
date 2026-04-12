@@ -22,6 +22,9 @@ export async function GET(
           include: {
             cards: {
               orderBy: { position: "asc" },
+              include: {
+                watchers: { select: { userId: true } }
+              }
             },
           },
         },

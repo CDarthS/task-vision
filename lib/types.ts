@@ -14,6 +14,7 @@ export interface CardData {
   creatorId: string | null;
   createdAt: string;
   updatedAt: string;
+  watchers?: { userId: string }[];
 }
 
 export interface ListData {
