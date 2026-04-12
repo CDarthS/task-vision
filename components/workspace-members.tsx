@@ -157,7 +157,7 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
                   {member.user.name}
                 </p>
                 <p className="text-xs text-slate-400 truncate">
-                  {member.role === "OWNER" ? "Dono" : member.role === "ADMIN" ? "Admin" : "Membro"}
+                  {member.role === "OWNER" ? "Admin" : member.role === "ADMIN" ? "Admin" : "Membro"}
                 </p>
               </div>
               {/* Botao remover — nao mostra para o dono */}
