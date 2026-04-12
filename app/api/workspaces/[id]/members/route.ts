@@ -68,10 +68,10 @@ export async function POST(
       return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
     }
 
-    // Busca o usuario pelo email
+    // Busca o usuario pelo email (incluindo role global para herança de papel)
     const targetUser = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, name: true, email: true, image: true, isDeactivated: true },
+      select: { id: true, name: true, email: true, image: true, isDeactivated: true, role: true },
     });
 
     if (!targetUser) {
@@ -91,12 +91,15 @@ export async function POST(
       return NextResponse.json({ error: "Usuario ja e membro deste workspace" }, { status: 409 });
     }
 
+    // Admin global herda papel ADMIN no workspace; demais entram como MEMBER
+    const workspaceRole = targetUser.role === "ADMIN" ? "ADMIN" : "MEMBER";
+
     // Adiciona ao workspace
     const member = await prisma.workspaceMember.create({
       data: {
         workspaceId: id,
         userId: targetUser.id,
-        role: "MEMBER",
+        role: workspaceRole,
       },
       include: {
         user: {
