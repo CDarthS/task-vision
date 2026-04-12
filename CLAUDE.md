@@ -789,6 +789,24 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Botao "+ Adicionar" ativado com dropdown estilo Trello
+
+### Mudanca
+- Botao "+ Adicionar" no card-detail-modal agora abre um dropdown com 4 opcoes funcionais
+- Cada opcao tem icone, titulo e descricao (estilo Trello "Adicionar ao cartao")
+- Opcoes ativadas: Etiquetas, Datas, Checklist, Membros
+- Cada uma abre o picker/funcao ja existente no modal
+- Click-outside fecha o dropdown automaticamente
+- Estado `showAddMenu` + ref `addMenuRef` adicionados ao componente
+
+### Arquivo modificado
+- `components/board/card-detail-modal.tsx`
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
