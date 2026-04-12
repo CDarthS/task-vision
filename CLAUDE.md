@@ -1241,3 +1241,107 @@ A cada 4 ciclos (~2 minutos), chama `GET /api/notifications/cron-overdue` que va
 - **Coexistencia**: DUE_DATE_SOON e DUE_DATE_OVERDUE podem coexistir na lista do user
 - **Custo zero**: sem cron externo, sem servicos adicionais — usa polling existente
 - **Frequencia**: ~2min (4 ciclos de 30s). Basta 1 user logado para disparar o check global
+
+---
+
+## 2026-04-12 — Fase 7: Redis + BullMQ (Filas de Automacao)
+
+### Objetivo
+Escalar o Task Vision para suportar automacoes estilo Butler, adicionando Redis a stack na Railway.
+Primeiro caso de uso: processar notificacoes de "Data de Entrega Proxima" de forma assincrona via fila,
+tirando o peso das API Routes sincronas.
+
+### Infra: Redis na Railway
+
+**Servico criado:** Redis no projeto "Task Vision - Dart" (Railway, ambiente production)
+- Deploy automatico, status: Online
+- URL interna: `redis://default:***@redis.railway.internal:6379`
+- Variaveis auto-geradas: REDIS_PASSWORD, REDIS_PUBLIC_URL, REDIS_URL, REDISHOST, REDISPASSWORD, REDISPORT, REDISUSER
+
+**REDIS_URL adicionada ao servico task-vision:**
+- Variavel `REDIS_URL` configurada no servico task-vision na Railway (aba Variables)
+- Valor aponta para a URL interna do Redis (comunicacao dentro da rede Railway)
+
+### Lib: BullMQ + IORedis
+
+**Pacotes instalados:**
+- `bullmq` — framework de filas baseado em Redis (producer/consumer pattern)
+- `ioredis` — cliente Redis de alta performance para Node.js
+
+**Comando:** `npm install bullmq ioredis`
+
+### Arquivos Criados
+
+#### `lib/redis.ts` — Singleton IORedis
+- Mesma estrategia de `lib/prisma.ts` (globalThis para evitar hot reload issues)
+- `maxRetriesPerRequest: null` — exigido pelo BullMQ
+- Retry com backoff exponencial (max 10s)
+- Logs de conexao e erro para monitoring
+
+#### `lib/queue/connection.ts` — Configuracao compartilhada BullMQ
+- Re-exporta a conexao Redis do singleton
+- Define prefixo `tv` para todas as filas (namespace isolation)
+
+#### `lib/queue/due-date-queue.ts` — Fila de notificacoes de due date
+- Nome da fila: `due-date-notifications`
+- 2 tipos de jobs:
+  - `scan-due-dates`: Varre todos os cards/items em atraso (substitui cron-overdue sincrono)
+  - `notify-single`: Notifica um card especifico (para futuras automacoes Butler)
+- Configuracao:
+  - 3 tentativas com backoff exponencial (5s, 10s, 20s)
+  - Auto-limpeza: completos apos 1h (max 100), falhados apos 24h
+- Helper: `enqueueDueDateScan("cron-virtual")` — enfileira scan completo
+- Helper: `enqueueCardNotification(cardId, reason)` — enfileira notificacao unitaria
+
+#### `lib/queue/due-date-worker.ts` — Worker de processamento
+- Toda a logica de scan que ANTES estava em `app/api/notifications/cron-overdue/route.ts`
+  agora esta no worker (processamento assincrono)
+- `processScanDueDates()`: mesma logica de batch query (idempotente, sem N+1)
+- `processNotifySingleCard()`: processa card unico com verificacao de duplicidade
+- Concorrencia: 1 job por vez (evita race conditions no Prisma)
+- Rate limit: max 5 jobs/minuto
+- Lazy init: `ensureWorkerRunning()` — inicia na primeira chamada
+- `getWorkerStatus()` — retorna "running", "paused" ou "stopped"
+
+#### `app/api/queue/health/route.ts` — Health check
+- `GET /api/queue/health` — diagnostico completo:
+  - Redis: connected, pingMs, version
+  - Filas: contagens por status (waiting, active, completed, failed, delayed)
+  - Worker: status (running/paused/stopped)
+- Retorna 503 se unhealthy
+
+#### `app/api/queue/due-date-scan/route.ts` — Endpoint assincrono
+- `GET /api/queue/due-date-scan` — substitui o cron-overdue sincrono
+- Apenas enfileira o job e retorna imediatamente
+- Garante que o worker esta rodando via `ensureWorkerRunning()`
+- Resposta: `{ queued: true, jobId: "scan-xxx" }`
+
+### Arquivos Modificados
+
+#### `components/notification-bell.tsx`
+- Polling agora chama `/api/queue/due-date-scan` (novo, assincrono) em vez de `/api/notifications/cron-overdue` (sincrono legado)
+- Fallback automatico: se o endpoint BullMQ falhar (ex: Redis offline), cai no cron-overdue sincrono
+- Padrao graceful degradation: BullMQ → cron sincrono → silencioso
+
+#### `.env`
+- Adicionada variavel `REDIS_URL` apontando para Redis interno da Railway
+
+#### `.env.example`
+- Adicionada documentacao da variavel `REDIS_URL` com nota sobre fallback sincrono
+
+#### `package.json`
+- Adicionados: `bullmq`, `ioredis` em dependencies
+
+### Decisoes Tecnicas
+- **BullMQ vs bull**: BullMQ e a versao moderna (TypeScript nativo, melhor API, mais features)
+- **IORedis obrigatorio**: BullMQ exige IORedis (nao funciona com node-redis)
+- **Worker no processo Next.js**: Roda no mesmo deploy (sem servico separado). Lazy-initialized na primeira chamada da API
+- **Graceful degradation**: Se Redis falhar, o sistema cai automaticamente no cron-overdue sincrono. Zero downtime
+- **Prefixo `tv`**: Namespace para todas as filas do Task Vision no Redis
+- **Concorrencia 1**: Um job por vez evita race conditions nas queries Prisma
+- **Rate limit 5/min**: Evita flood se multiplos usuarios trigarem o scan simultaneamente
+- **cron-overdue preservado**: Endpoint sincrono mantido como fallback e para retrocompatibilidade
+
+### Verificacao
+- `npm run build` — 0 erros, novas rotas compilam (/api/queue/health, /api/queue/due-date-scan)
+- Teste de conexao em producao pendente (proximo passo: git push + verificar health endpoint)

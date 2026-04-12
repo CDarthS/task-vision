@@ -96,16 +96,24 @@ export function NotificationBell() {
   const router = useRouter();
 
   // Polling: busca contagem de não lidas a cada 30s
-  // + dispara cron-overdue a cada ~2min (4 ciclos de 30s)
+  // + dispara scan de due dates via BullMQ a cada ~2min (4 ciclos de 30s)
   const cronCounter = useRef(0);
 
   const fetchCount = useCallback(async () => {
     try {
-      // Cron virtual: a cada 4 ciclos (~2min), verifica cards em atraso
+      // Scan via BullMQ: a cada 4 ciclos (~2min), enfileira verificacao de cards em atraso
       cronCounter.current++;
       if (cronCounter.current >= 4) {
         cronCounter.current = 0;
-        fetch("/api/notifications/cron-overdue").catch(() => {});
+        // Usa a nova fila BullMQ (assincrona) com fallback para o endpoint sincrono legado
+        fetch("/api/queue/due-date-scan")
+          .then((res) => {
+            if (!res.ok) return fetch("/api/notifications/cron-overdue");
+          })
+          .catch(() => {
+            // Fallback silencioso para o endpoint legado se BullMQ falhar
+            fetch("/api/notifications/cron-overdue").catch(() => {});
+          });
       }
 
       const res = await fetch("/api/notifications/count");
@@ -119,8 +127,14 @@ export function NotificationBell() {
   }, []);
 
   useEffect(() => {
-    // Dispara cron-overdue imediatamente na montagem
-    fetch("/api/notifications/cron-overdue").catch(() => {});
+    // Dispara scan de due dates imediatamente na montagem (via BullMQ)
+    fetch("/api/queue/due-date-scan")
+      .then((res) => {
+        if (!res.ok) return fetch("/api/notifications/cron-overdue");
+      })
+      .catch(() => {
+        fetch("/api/notifications/cron-overdue").catch(() => {});
+      });
     fetchCount();
     const interval = setInterval(fetchCount, 30000);
     return () => clearInterval(interval);
