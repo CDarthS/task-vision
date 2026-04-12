@@ -87,12 +87,12 @@ export async function POST(
       data: { cardTitle: card.title, addedBy: user.name },
     });
 
-    // Registra atividade
+    // Registra atividade (memberId permite distinguir auto-acao vs acao sobre outro)
     logActivity({
       cardId: id,
       userId: user.id,
       type: "MEMBER_ADDED",
-      data: { memberName: addedUser?.name || "Usuário" },
+      data: { memberName: addedUser?.name || "Usuário", memberId: userId },
     });
 
     return NextResponse.json({ member: addedUser }, { status: 201 });
@@ -135,12 +135,12 @@ export async function DELETE(
       where: { cardId_userId: { cardId: id, userId } },
     });
 
-    // Registra atividade
+    // Registra atividade (memberId permite distinguir auto-acao vs acao sobre outro)
     logActivity({
       cardId: id,
       userId: user.id,
       type: "MEMBER_REMOVED",
-      data: { memberName: removedUser?.name || "Usuário" },
+      data: { memberName: removedUser?.name || "Usuário", memberId: userId },
     });
 
     return NextResponse.json({ success: true });

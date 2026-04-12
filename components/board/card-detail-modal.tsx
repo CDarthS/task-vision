@@ -678,8 +678,16 @@ export function CardDetailModal({
       case "DUE_DATE_REMOVED":
         return "removeu a data de entrega deste cartão";
       case "MEMBER_ADDED":
+        // Se a pessoa adicionou a si mesma: "entrou neste cartão" (estilo Trello)
+        if (data.memberId && activity.user?.id === data.memberId) {
+          return "entrou neste cartão";
+        }
         return `adicionou ${data.memberName} a este cartão`;
       case "MEMBER_REMOVED":
+        // Se a pessoa removeu a si mesma: "saiu deste cartão"
+        if (data.memberId && activity.user?.id === data.memberId) {
+          return "saiu deste cartão";
+        }
         return `removeu ${data.memberName} deste cartão`;
       case "LABEL_ADDED":
         return `adicionou ${data.labelName} a este cartão`;

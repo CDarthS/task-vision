@@ -766,6 +766,29 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Texto de atividade estilo Trello: "entrou/saiu" em vez de "adicionou/removeu"
+
+### Problema reportado
+- Quando Lavinia adicionava a si mesma ao cartao, o feed mostrava "Lavinia adicionou Lavinia a este cartao"
+- O correto (estilo Trello): "Lavinia entrou neste cartao" / "Lavinia saiu deste cartao"
+
+### Mudancas
+
+**`app/api/cards/[id]/members/route.ts`:**
+- POST (adicionar): logActivity agora grava `memberId: userId` no data (alem de memberName)
+- DELETE (remover): logActivity agora grava `memberId: userId` no data
+
+**`components/board/card-detail-modal.tsx`:**
+- MEMBER_ADDED: se `activity.user.id === data.memberId` → "entrou neste cartao" (auto-acao)
+- MEMBER_ADDED: senao → "adicionou {nome} a este cartao" (outro usuario adicionou)
+- MEMBER_REMOVED: se `activity.user.id === data.memberId` → "saiu deste cartao"
+- MEMBER_REMOVED: senao → "removeu {nome} deste cartao"
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
