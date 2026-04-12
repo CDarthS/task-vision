@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { logActivity } from "@/lib/activity";
 
 // Helper: verifica permissao via checklist > card > list > board > workspace
 async function verifyChecklistAccess(checklistId: string, userId: string, userRole: string) {
@@ -80,7 +81,18 @@ export async function DELETE(
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
+    // Guarda info antes de deletar
+    const checklistInfo = access.checklist!;
+
     await prisma.checklist.delete({ where: { id } });
+
+    // Registra atividade
+    logActivity({
+      cardId: checklistInfo.card.id,
+      userId: user.id,
+      type: "CHECKLIST_REMOVED",
+      data: { checklistTitle: checklistInfo.title },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

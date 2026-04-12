@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { notifyCardMembers } from "@/lib/notifications/create-notification";
+import { logActivity } from "@/lib/activity";
 
 // GET /api/cards/[id] — buscar detalhes do card
 export async function GET(
@@ -104,6 +105,58 @@ export async function PATCH(
       data: updateData,
     });
 
+    // --- Registro de atividades ---
+    // Título alterado
+    if (title !== undefined && title.trim() !== card.title) {
+      logActivity({
+        cardId: id,
+        userId: user.id,
+        type: "CARD_TITLE_UPDATED",
+        data: { oldTitle: card.title, newTitle: title.trim() },
+      });
+    }
+
+    // Moveu de lista
+    if (listId !== undefined && listId !== card.listId) {
+      const newList = await prisma.list.findUnique({ where: { id: listId }, select: { title: true } });
+      logActivity({
+        cardId: id,
+        userId: user.id,
+        type: "CARD_MOVED",
+        data: { fromList: card.list.title, toList: newList?.title || "Lista desconhecida" },
+      });
+    }
+
+    // Due date alterada
+    const oldDateStr = card.dueDate ? card.dueDate.toISOString() : null;
+    const newDateStrActivity = dueDate !== undefined ? (dueDate ? new Date(dueDate).toISOString() : null) : undefined;
+    if (newDateStrActivity !== undefined && oldDateStr !== newDateStrActivity) {
+      if (newDateStrActivity) {
+        const d = new Date(newDateStrActivity);
+        logActivity({
+          cardId: id,
+          userId: user.id,
+          type: "DUE_DATE_SET",
+          data: { dueDate: d.toLocaleDateString("pt-BR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) },
+        });
+      } else {
+        logActivity({
+          cardId: id,
+          userId: user.id,
+          type: "DUE_DATE_REMOVED",
+        });
+      }
+    }
+
+    // Conclusão/desconclusão
+    if (isDueCompleted !== undefined && isDueCompleted !== card.isDueCompleted) {
+      logActivity({
+        cardId: id,
+        userId: user.id,
+        type: isDueCompleted ? "CARD_COMPLETED" : "CARD_UNCOMPLETED",
+      });
+    }
+
     // Notificação: card movido de lista
     if (listId !== undefined && listId !== card.listId) {
       const newList = await prisma.list.findUnique({ where: { id: listId }, select: { title: true } });
@@ -121,9 +174,9 @@ export async function PATCH(
     }
 
     // Verifica se a data realmente mudou para evitar disparos repetidos
-    const oldDateStr = card.dueDate ? card.dueDate.toISOString() : null;
-    const newDateStr = dueDate ? new Date(dueDate).toISOString() : null;
-    const isDueDateChanged = oldDateStr !== newDateStr;
+    const oldDateStrNotif = card.dueDate ? card.dueDate.toISOString() : null;
+    const newDateStrNotif = dueDate ? new Date(dueDate).toISOString() : null;
+    const isDueDateChanged = oldDateStrNotif !== newDateStrNotif;
 
     // Notificação: due date definido/alterado
     if (isDueDateChanged && dueDate !== undefined && dueDate !== null) {

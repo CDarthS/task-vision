@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { logActivity } from "@/lib/activity";
 
 // GET /api/cards/[id]/labels — listar labels atribuidas ao card
 export async function GET(
@@ -105,6 +106,14 @@ export async function POST(
       include: { label: true },
     });
 
+    // Registra atividade
+    logActivity({
+      cardId: id,
+      userId: user.id,
+      type: "LABEL_ADDED",
+      data: { labelName: cardLabel.label.name || cardLabel.label.color },
+    });
+
     return NextResponse.json({ label: cardLabel.label }, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {
@@ -155,8 +164,22 @@ export async function DELETE(
       return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
     }
 
+    // Busca info da label antes de deletar para registrar atividade
+    const cardLabelInfo = await prisma.cardLabel.findUnique({
+      where: { cardId_labelId: { cardId: id, labelId } },
+      include: { label: true },
+    });
+
     await prisma.cardLabel.delete({
       where: { cardId_labelId: { cardId: id, labelId } },
+    });
+
+    // Registra atividade
+    logActivity({
+      cardId: id,
+      userId: user.id,
+      type: "LABEL_REMOVED",
+      data: { labelName: cardLabelInfo?.label.name || cardLabelInfo?.label.color || "Etiqueta" },
     });
 
     return NextResponse.json({ success: true });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { createNotification } from "@/lib/notifications/create-notification";
+import { logActivity } from "@/lib/activity";
 
 // GET /api/cards/[id]/members — listar membros do card
 export async function GET(
@@ -86,6 +87,14 @@ export async function POST(
       data: { cardTitle: card.title, addedBy: user.name },
     });
 
+    // Registra atividade
+    logActivity({
+      cardId: id,
+      userId: user.id,
+      type: "MEMBER_ADDED",
+      data: { memberName: addedUser?.name || "Usuário" },
+    });
+
     return NextResponse.json({ member: addedUser }, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
@@ -116,8 +125,22 @@ export async function DELETE(
     });
     if (!membership && user.role !== "ADMIN") return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
 
+    // Busca nome do membro removido para atividade
+    const removedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
     await prisma.cardMember.delete({
       where: { cardId_userId: { cardId: id, userId } },
+    });
+
+    // Registra atividade
+    logActivity({
+      cardId: id,
+      userId: user.id,
+      type: "MEMBER_REMOVED",
+      data: { memberName: removedUser?.name || "Usuário" },
     });
 
     return NextResponse.json({ success: true });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { logActivity } from "@/lib/activity";
 
 // GET /api/cards/[id]/checklists — listar checklists do card
 export async function GET(
@@ -110,6 +111,14 @@ export async function POST(
         position,
       },
       include: { items: true },
+    });
+
+    // Registra atividade
+    logActivity({
+      cardId: id,
+      userId: user.id,
+      type: "CHECKLIST_ADDED",
+      data: { checklistTitle: checklist.title },
     });
 
     return NextResponse.json({ checklist }, { status: 201 });

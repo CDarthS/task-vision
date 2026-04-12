@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { notifyCardMembers } from "@/lib/notifications/create-notification";
+import { logActivity } from "@/lib/activity";
 
 // GET /api/cards/[id]/comments — listar comentarios do card
 export async function GET(
@@ -121,6 +122,14 @@ export async function POST(
       type: "COMMENT_ADDED",
       data: { cardTitle: card.title, commentText: text.trim().substring(0, 100) },
       commentId: comment.id,
+    });
+
+    // Registra atividade
+    logActivity({
+      cardId: id,
+      userId: user.id,
+      type: "COMMENT_ADDED",
+      data: { commentText: text.trim().substring(0, 100) },
     });
 
     return NextResponse.json({ comment }, { status: 201 });

@@ -95,6 +95,7 @@ export function CardDetailModal({
   const [editingDescription, setEditingDescription] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   // Due date state
   const [dueDate, setDueDate] = useState(card.dueDate || "");
@@ -129,30 +130,46 @@ export function CardDetailModal({
   const [activeItemDatePicker, setActiveItemDatePicker] = useState<string | null>(null); // itemId
   const [itemDateInputs, setItemDateInputs] = useState<Record<string, string>>({}); // itemId -> ISO string
 
+  // Activities state
+  interface ActivityData {
+    id: string;
+    type: string;
+    data: Record<string, string>;
+    createdAt: string;
+    user: { id: string; name: string; email: string; image?: string | null } | null;
+  }
+  const [activities, setActivities] = useState<ActivityData[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const memberPickerRef = useRef<HTMLDivElement>(null);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (memberPickerRef.current && !memberPickerRef.current.contains(event.target as Node)) {
         setShowMemberPicker(false);
       }
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setShowActionsMenu(false);
+      }
     }
-    if (showMemberPicker) {
+    if (showMemberPicker || showActionsMenu) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showMemberPicker]);
+  }, [showMemberPicker, showActionsMenu]);
 
-  // Carrega comentarios, checklists, labels e membros ao abrir
+  // Carrega comentarios, checklists, labels, membros e atividades ao abrir
   useEffect(() => {
     loadComments();
     loadChecklists();
     loadLabels();
     loadMembers();
+    loadActivities();
   }, [card.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadComments() {
@@ -206,6 +223,16 @@ export function CardDetailModal({
         );
       }
     } catch { /* silently fail */ }
+  }
+
+  async function loadActivities() {
+    setLoadingActivities(true);
+    try {
+      const res = await fetch(`/api/cards/${card.id}/activities`);
+      const data = await res.json();
+      if (res.ok) setActivities(data.activities);
+    } catch { /* silently fail */ }
+    finally { setLoadingActivities(false); }
   }
 
   async function toggleMember(userId: string) {
@@ -551,6 +578,45 @@ export function CardDetailModal({
     }
   }
 
+  // Traduz tipo de atividade para texto legivel
+  function getActivityText(activity: ActivityData): string {
+    const data = activity.data || {};
+    switch (activity.type) {
+      case "CARD_CREATED":
+        return `adicionou este cartão a ${data.listTitle || listTitle}`;
+      case "CARD_TITLE_UPDATED":
+        return `renomeou este cartão de \"${data.oldTitle}\" para \"${data.newTitle}\"`;
+      case "CARD_DESCRIPTION_UPDATED":
+        return "atualizou a descrição deste cartão";
+      case "CARD_MOVED":
+        return `moveu este cartão de ${data.fromList} para ${data.toList}`;
+      case "CARD_COMPLETED":
+        return "marcou este cartão como completo";
+      case "CARD_UNCOMPLETED":
+        return "desmarcou este cartão como completo";
+      case "DUE_DATE_SET":
+        return `definiu a data de entrega para ${data.dueDate}`;
+      case "DUE_DATE_REMOVED":
+        return "removeu a data de entrega deste cartão";
+      case "MEMBER_ADDED":
+        return `adicionou ${data.memberName} a este cartão`;
+      case "MEMBER_REMOVED":
+        return `removeu ${data.memberName} deste cartão`;
+      case "LABEL_ADDED":
+        return `adicionou ${data.labelName} a este cartão`;
+      case "LABEL_REMOVED":
+        return `removeu ${data.labelName} deste cartão`;
+      case "CHECKLIST_ADDED":
+        return `adicionou ${data.checklistTitle} a este cartão`;
+      case "CHECKLIST_REMOVED":
+        return `removeu ${data.checklistTitle} deste cartão`;
+      case "COMMENT_ADDED":
+        return `comentou: \"${data.commentText}\"`;
+      default:
+        return `realizou uma ação (${activity.type})`;
+    }
+  }
+
   async function handleDelete() {
     if (!confirm("Tem certeza que deseja excluir este cartao?")) return;
     try {
@@ -624,6 +690,101 @@ export function CardDetailModal({
                 <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
               </svg>
             </button>
+            {/* Menu 3 pontinhos */}
+            <div ref={actionsMenuRef} className="relative">
+              <button
+                onClick={() => setShowActionsMenu(!showActionsMenu)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                title="Ações do cartão"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="5" cy="12" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="19" cy="12" r="2" />
+                </svg>
+              </button>
+              {showActionsMenu && (
+                <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-100">
+                  <button
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                    </svg>
+                    Sair
+                  </button>
+                  <button
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                    Mover
+                  </button>
+                  <button
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                    </svg>
+                    Copiar
+                  </button>
+                  <button
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    Criar template
+                  </button>
+                  <button
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                    Seguir
+                  </button>
+                  <button
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                    </svg>
+                    Compartilhar
+                  </button>
+                  <button
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                    </svg>
+                    Arquivar
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                  <button
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleDelete();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                    Excluir cartão
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
@@ -1350,13 +1511,13 @@ export function CardDetailModal({
                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                 </svg>
-                <h3 className="text-sm font-semibold text-gray-800">Comentarios e atividade</h3>
+                <h3 className="text-sm font-semibold text-gray-800">Comentários e atividade</h3>
               </div>
               <button
                 onClick={() => setShowDetails(!showDetails)}
                 className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
               >
-                {showDetails ? "Ocultar Detalhes" : "Mostrar Detalhes"}
+                {showDetails ? "Ocultar detalhes" : "Mostrar Detalhes"}
               </button>
             </div>
 
@@ -1370,7 +1531,7 @@ export function CardDetailModal({
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && commentText.trim()) postComment();
                   }}
-                  placeholder="Escrever um comentario..."
+                  placeholder="Escrever um comentário..."
                   className="flex-1 px-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 transition-all placeholder:text-gray-400"
                 />
                 {commentText.trim() && (
@@ -1385,89 +1546,140 @@ export function CardDetailModal({
               </div>
             </div>
 
-            {/* Comentarios e atividades */}
-            <div className="space-y-4">
-              {/* Comentarios reais do banco */}
-              {loadingComments && (
+            {/* Timeline unificada: Comentários + Atividades */}
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+              {(loadingComments || loadingActivities) && (
                 <p className="text-xs text-gray-400">Carregando...</p>
               )}
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-sm">
-                    {comment.user.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={comment.user.image} alt={comment.user.name} className="w-full h-full object-cover" />
-                    ) : (
-                      comment.user.name
+              {(() => {
+                // Monta array unificado
+                type TimelineItem = {
+                  id: string;
+                  kind: "comment" | "activity";
+                  createdAt: string;
+                  user: { id: string; name: string; email: string; image?: string | null } | null;
+                  // Comment fields
+                  text?: string;
+                  // Activity fields
+                  type?: string;
+                  data?: Record<string, string>;
+                };
+
+                const items: TimelineItem[] = [];
+
+                // Comentários sempre aparecem
+                comments.forEach((c) =>
+                  items.push({
+                    id: c.id,
+                    kind: "comment",
+                    createdAt: c.createdAt,
+                    user: c.user,
+                    text: c.text,
+                  })
+                );
+
+                // Atividades: filtrar COMMENT_ADDED (já aparece como comentário)
+                // Só mostra atividades de sistema quando showDetails = true
+                if (showDetails) {
+                  activities
+                    .filter((a) => a.type !== "COMMENT_ADDED")
+                    .forEach((a) =>
+                      items.push({
+                        id: a.id,
+                        kind: "activity",
+                        createdAt: a.createdAt,
+                        user: a.user,
+                        type: a.type,
+                        data: a.data,
+                      })
+                    );
+                }
+
+                // Sempre inclui o "card criado" como último item
+                items.push({
+                  id: "card-created",
+                  kind: "activity",
+                  createdAt: card.createdAt,
+                  user: null,
+                  type: "CARD_CREATED",
+                  data: { listTitle },
+                });
+
+                // Ordena por data desc
+                items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+                return items.map((item) => {
+                  const itemUser = item.user;
+                  const itemInitials = itemUser
+                    ? itemUser.name
                         .split(" ")
                         .map((n) => n[0])
                         .join("")
                         .toUpperCase()
                         .slice(0, 2)
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-700">{comment.user.name}</p>
-                    <div className="mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700 break-words">
-                      {comment.text}
+                    : userInitials;
+                  const itemUserName = itemUser ? itemUser.name : userName;
+
+                  // Cores de avatar pelas iniciais
+                  const avatarColors = [
+                    "from-red-500 to-red-600",
+                    "from-blue-500 to-blue-600",
+                    "from-green-500 to-green-600",
+                    "from-amber-500 to-amber-600",
+                    "from-purple-500 to-purple-600",
+                    "from-pink-500 to-pink-600",
+                  ];
+                  const colorIdx = itemUserName.charCodeAt(0) % avatarColors.length;
+
+                  if (item.kind === "comment") {
+                    return (
+                      <div key={item.id} className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${avatarColors[colorIdx]} flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-sm`}>
+                          {itemUser?.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={itemUser.image} alt={itemUserName} className="w-full h-full object-cover" />
+                          ) : (
+                            itemInitials
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-700">{itemUserName}</p>
+                          <div className="mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700 break-words">
+                            {item.text}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {formatRelativeDate(item.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Atividade de sistema
+                  return (
+                    <div key={item.id} className="flex items-start gap-3">
+                      <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${avatarColors[colorIdx]} flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-sm`}>
+                        {itemUser?.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={itemUser.image} alt={itemUserName} className="w-full h-full object-cover" />
+                        ) : (
+                          itemInitials
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-700">
+                          <span className="font-semibold">{itemUserName}</span>{" "}
+                          {getActivityText(item as ActivityData)}
+                        </p>
+                        <p className="text-xs text-violet-600 hover:underline cursor-pointer mt-0.5">
+                          {formatRelativeDate(item.createdAt)}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {formatRelativeDate(comment.createdAt)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-
-              {/* Atividade intrinseca: card criado */}
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5">
-                  {userInitials}
-                </div>
-                <div>
-                  <p className="text-sm text-gray-700">
-                    <span className="font-semibold">{userName}</span>{" "}
-                    adicionou este cartao a {listTitle}
-                  </p>
-                  <p className="text-xs text-violet-600 hover:underline cursor-pointer mt-0.5">
-                    {formatRelativeDate(card.createdAt)}
-                  </p>
-                </div>
-              </div>
+                  );
+                });
+              })()}
             </div>
-
-            {/* Detalhes expandidos */}
-            {showDetails && (
-              <div className="mt-6 pt-4 border-t border-gray-100 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Criado em</span>
-                  <span className="text-gray-700">{formattedCreated}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Ultima atualizacao</span>
-                  <span className="text-gray-700">{formatRelativeDate(card.updatedAt)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Lista</span>
-                  <span className="text-gray-700">{listTitle}</span>
-                </div>
-                {hasDueDate && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Data entrega</span>
-                    <span className={isDueCompleted ? "text-green-600" : isOverdue ? "text-red-600" : "text-gray-700"}>
-                      {formattedDueDate}
-                    </span>
-                  </div>
-                )}
-                <div className="pt-2">
-                  <button
-                    onClick={handleDelete}
-                    className="w-full px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-                  >
-                    Excluir cartao
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
