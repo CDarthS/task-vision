@@ -18,13 +18,15 @@ import { BoardHeader } from "./board-header";
 import { KanbanList } from "./kanban-list";
 import { KanbanCard } from "./kanban-card";
 import { CardDetailModal } from "./card-detail-modal";
-import type { CardData, ListData, BoardData } from "@/lib/types";
+import { BoardFilter } from "./board-filter";
+import type { CardData, ListData, BoardData, WorkspaceMemberInfo } from "@/lib/types";
 
 interface BoardClientProps {
   board: BoardData;
   userName: string;
   userId: string;
   initialCardId?: string;
+  workspaceMembers?: WorkspaceMemberInfo[];
 }
 
 // ─── Helpers de posição ────────────────────────────────────────────────
@@ -41,7 +43,7 @@ function calcPosition(items: CardData[], toIndex: number, movedId: string): numb
   return ((prev.position ?? 0) + (next.position ?? 0)) / 2;
 }
 
-export function BoardClient({ board, userName, userId, initialCardId }: BoardClientProps) {
+export function BoardClient({ board, userName, userId, initialCardId, workspaceMembers = [] }: BoardClientProps) {
   const router = useRouter();
   const [lists, setLists] = useState<ListData[]>(board.lists);
   const [addingList, setAddingList] = useState(false);
@@ -59,6 +61,58 @@ export function BoardClient({ board, userName, userId, initialCardId }: BoardCli
 
   // Drag state — card que está a ser arrastado agora
   const [activeCard, setActiveCard] = useState<CardData | null>(null);
+
+  // Filter state
+  const [filterKeyword, setFilterKeyword] = useState("");
+  const [filterNoMembers, setFilterNoMembers] = useState(false);
+  const [filterMyCards, setFilterMyCards] = useState(false);
+  const [filterSelectedMembers, setFilterSelectedMembers] = useState<string[]>([]);
+
+  const hasActiveFilters =
+    filterKeyword.trim().length > 0 ||
+    filterNoMembers ||
+    filterMyCards ||
+    filterSelectedMembers.length > 0;
+
+  // Filtered lists computation
+  const filteredLists = lists.map((list) => {
+    if (!hasActiveFilters) return list;
+
+    const lowerKeyword = filterKeyword.toLowerCase();
+
+    const filteredCards = list.cards.filter((card) => {
+      let matches = true;
+
+      // 1. Keyword search (title, description)
+      if (lowerKeyword) {
+        const text = `${card.title} ${card.description || ""}`.toLowerCase();
+        if (!text.includes(lowerKeyword)) matches = false;
+      }
+
+      // 2. Members filter - treat as OR logic for member conditions
+      const membersCount = card.members ? card.members.length : 0;
+      const isAssignedToMe = card.members?.some((m) => m.userId === userId) ?? false;
+      const hasSelectedMember = filterSelectedMembers.length > 0
+        ? card.members?.some((m) => filterSelectedMembers.includes(m.userId)) ?? false
+        : false;
+
+      // Se nenhum filtro de membro estiver ativo, a condição de membro passa.
+      // Se pelo menos UM filtro de membro estiver ativo, o cartão DEVE casar com um deles.
+      const hasMemberFilters = filterNoMembers || filterMyCards || filterSelectedMembers.length > 0;
+      if (hasMemberFilters) {
+        let memberMatch = false;
+        if (filterNoMembers && membersCount === 0) memberMatch = true;
+        if (filterMyCards && isAssignedToMe) memberMatch = true;
+        if (hasSelectedMember) memberMatch = true;
+        
+        if (!memberMatch) matches = false;
+      }
+
+      return matches;
+    });
+
+    return { ...list, cards: filteredCards };
+  });
 
   // =======================================================================
   // DnD sensors: PointerSensor com distância mínima de 8px para evitar
@@ -270,8 +324,22 @@ export function BoardClient({ board, userName, userId, initialCardId }: BoardCli
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-purple-600 via-violet-500 to-pink-400">
-      {/* Board Header */}
-      <BoardHeader title={board.title} boardId={board.id} />
+      {/* Board Header e Filtros */}
+      <BoardHeader title={board.title} boardId={board.id}>
+        <BoardFilter
+          workspaceMembers={workspaceMembers}
+          userId={userId}
+          filterKeyword={filterKeyword}
+          setFilterKeyword={setFilterKeyword}
+          filterNoMembers={filterNoMembers}
+          setFilterNoMembers={setFilterNoMembers}
+          filterMyCards={filterMyCards}
+          setFilterMyCards={setFilterMyCards}
+          filterSelectedMembers={filterSelectedMembers}
+          setFilterSelectedMembers={setFilterSelectedMembers}
+          hasActiveFilters={hasActiveFilters}
+        />
+      </BoardHeader>
 
       {/* Kanban Canvas — scroll horizontal */}
       <DndContext
@@ -284,7 +352,7 @@ export function BoardClient({ board, userName, userId, initialCardId }: BoardCli
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
           <div className="flex items-start gap-4 h-full">
             {/* Listas */}
-            {lists.map((list) => (
+            {filteredLists.map((list) => (
               <KanbanList
                 key={list.id}
                 id={list.id}

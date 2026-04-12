@@ -7,9 +7,10 @@ import { EditableTitle } from "@/components/editable-title";
 interface BoardHeaderProps {
   title: string;
   boardId: string;
+  children?: React.ReactNode;
 }
 
-export function BoardHeader({ title, boardId }: BoardHeaderProps) {
+export function BoardHeader({ title, boardId, children }: BoardHeaderProps) {
   const router = useRouter();
   const [currentTitle, setCurrentTitle] = useState(title);
 
@@ -35,9 +36,14 @@ export function BoardHeader({ title, boardId }: BoardHeaderProps) {
         value={currentTitle}
         onSave={handleSaveTitle}
         tag="h1"
-        className="text-base font-bold text-white"
+        className="text-base font-bold text-white shrink-0"
         inputClassName="text-base font-bold text-white w-64"
       />
+      
+      {/* Actions / Children */}
+      <div className="flex-1 flex justify-end items-center">
+        {children}
+      </div>
     </div>
   );
 }

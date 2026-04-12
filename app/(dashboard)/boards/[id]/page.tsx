@@ -29,6 +29,10 @@ export default async function BoardPage({
         include: {
           cards: {
             orderBy: { position: "asc" },
+            include: {
+              members: { select: { userId: true } },
+              watchers: { select: { userId: true } },
+            },
           },
         },
       },
@@ -53,6 +57,22 @@ export default async function BoardPage({
     notFound();
   }
 
+  // Buscar membros do workspace para o filtro
+  const workspaceMembers = await prisma.workspaceMember.findMany({
+    where: { workspaceId: board.workspaceId },
+    include: {
+      user: {
+        select: { id: true, name: true, image: true },
+      },
+    },
+  });
+
+  const serializedMembers = workspaceMembers.map((wm) => ({
+    id: wm.user.id,
+    name: wm.user.name,
+    image: wm.user.image,
+  }));
+
   // Serializa dates para JSON (Next.js Server Components)
   const serializedBoard = {
     ...board,
@@ -64,6 +84,8 @@ export default async function BoardPage({
       updatedAt: list.updatedAt.toISOString(),
       cards: list.cards.map((card) => ({
         ...card,
+        members: card.members,
+        watchers: card.watchers,
         dueDate: card.dueDate ? card.dueDate.toISOString() : null,
         createdAt: card.createdAt.toISOString(),
         updatedAt: card.updatedAt.toISOString(),
@@ -77,6 +99,7 @@ export default async function BoardPage({
       userName={user.name}
       userId={user.id}
       initialCardId={cardId}
+      workspaceMembers={serializedMembers}
     />
   );
 }

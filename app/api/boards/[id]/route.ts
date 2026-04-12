@@ -23,7 +23,8 @@ export async function GET(
             cards: {
               orderBy: { position: "asc" },
               include: {
-                watchers: { select: { userId: true } }
+                watchers: { select: { userId: true } },
+                members: { select: { userId: true } },
               }
             },
           },

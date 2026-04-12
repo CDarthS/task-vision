@@ -3,6 +3,16 @@
  * Interfaces serializadas (datas como string ISO) para uso em Client Components.
  */
 
+export interface CardMemberData {
+  userId: string;
+}
+
+export interface WorkspaceMemberInfo {
+  id: string;
+  name: string;
+  image: string | null;
+}
+
 export interface CardData {
   id: string;
   title: string;
@@ -15,6 +25,7 @@ export interface CardData {
   createdAt: string;
   updatedAt: string;
   watchers?: { userId: string }[];
+  members?: CardMemberData[];
 }
 
 export interface ListData {
