@@ -1,11 +1,11 @@
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCachedCurrentUser } from "@/lib/auth/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (!user) {
     redirect("/login");

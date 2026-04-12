@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCachedCurrentUser } from "@/lib/auth/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { BoardClient } from "@/components/board/board-client";
@@ -10,7 +10,7 @@ export default async function BoardPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ cardId?: string }>;
 }) {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
   if (!user) {
     redirect("/login");
   }

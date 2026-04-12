@@ -581,6 +581,37 @@ taskvision/
 
 ---
 
+## 2026-04-12 — Bugfix: Feed de atividades mostrando nome do criador em vez do usuario que moveu
+
+### Problema reportado
+- Admin movia um card, mas o feed de atividades mostrava "Lavinia moveu" em vez de "Administrador moveu"
+- Todas as entradas CARD_MOVED apareciam com o nome de quem CRIOU o card, nao de quem moveu
+
+### Causa raiz
+- O `React.cache()` adicionado no P4.12 em `getCurrentUser()` estava vazando entre requests em API Route Handlers
+- Quando Lavinia fazia um request (ex: polling de notificacoes), seu user era cacheado
+- Quando o Admin fazia PATCH para mover um card, `requireUser()` chamava `getCurrentUser()` que retornava o user cacheado (Lavinia) em vez de ler os cookies frescos do request do Admin
+- `logActivity({ userId: user.id })` gravava o ID da Lavinia, nao do Admin
+
+### Correcao
+- **`lib/auth/get-current-user.ts`:** Removido `React.cache()` de `getCurrentUser()`
+- Criada funcao separada `getCachedCurrentUser()` = `cache(getCurrentUser)` para uso EXCLUSIVO em Server Components (layout, pages)
+- API Route Handlers (app/api/*) continuam usando `getCurrentUser()` sem cache via `requireUser()`
+- Regra: Server Components → `getCachedCurrentUser()` | APIs → `requireUser()` / `getCurrentUser()`
+
+### Arquivos modificados
+- `lib/auth/get-current-user.ts` — split cache/no-cache
+- `app/(dashboard)/layout.tsx` → `getCachedCurrentUser()`
+- `app/(dashboard)/page.tsx` → `getCachedCurrentUser()`
+- `app/(dashboard)/workspaces/[id]/page.tsx` → `getCachedCurrentUser()`
+- `app/(dashboard)/boards/[id]/page.tsx` → `getCachedCurrentUser()`
+
+### Verificacao
+- `npm run build` — 0 erros
+- Nenhuma API route usa `getCachedCurrentUser` (verificado com grep)
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

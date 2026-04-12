@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCachedCurrentUser } from "@/lib/auth/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { getGradientByName } from "@/lib/workspace-gradients";
@@ -12,7 +12,7 @@ export default async function WorkspacePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (!user) {
     redirect("/login");

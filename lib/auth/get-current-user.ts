@@ -6,9 +6,13 @@ import type { User } from "@/lib/generated/prisma/client";
 
 export type SafeUser = Omit<User, "password">;
 
-// React.cache() deduplica chamadas dentro do mesmo request do servidor.
-// O layout e as pages podem chamar getCurrentUser() sem custo extra.
-export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
+/**
+ * Busca o usuario autenticado a partir dos cookies do request.
+ * IMPORTANTE: Nao usar React.cache() aqui — em API Route Handlers,
+ * o cache pode vazar entre requests diferentes, retornando o usuario errado.
+ * Para deduplicar em Server Components (layout+page), use getCachedCurrentUser().
+ */
+export async function getCurrentUser(): Promise<SafeUser | null> {
   const cookieStore = await cookies();
   const tokenCookie = cookieStore.get("accessToken");
 
@@ -45,7 +49,14 @@ export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password, ...safeUser } = session.user;
   return safeUser;
-});
+}
+
+/**
+ * Versao cacheada de getCurrentUser() para uso EXCLUSIVO em Server Components.
+ * React.cache() deduplica chamadas dentro do mesmo request de renderizacao.
+ * NAO usar em API Route Handlers (app/api/*) — usar getCurrentUser() direto.
+ */
+export const getCachedCurrentUser = cache(getCurrentUser);
 
 export async function requireUser(): Promise<SafeUser> {
   const user = await getCurrentUser();
