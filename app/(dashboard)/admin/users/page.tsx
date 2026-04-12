@@ -231,7 +231,7 @@ export default function AdminUsersPage() {
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger
             render={
-              <Button className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white cursor-pointer" />
+              <Button variant="gradient" />
             }
           >
             + Novo Usuario
@@ -297,7 +297,7 @@ export default function AdminUsersPage() {
               </div>
 
               {createError && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+                <div className="tv-error-box">
                   {createError}
                 </div>
               )}
@@ -305,7 +305,8 @@ export default function AdminUsersPage() {
               <Button
                 type="submit"
                 disabled={creating}
-                className="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white cursor-pointer"
+                variant="gradient"
+                className="w-full"
               >
                 {creating ? "Criando..." : "Criar Usuario"}
               </Button>
@@ -389,7 +390,7 @@ export default function AdminUsersPage() {
             </div>
 
             {editError && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+              <div className="tv-error-box">
                 {editError}
               </div>
             )}
@@ -406,7 +407,8 @@ export default function AdminUsersPage() {
               <Button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white cursor-pointer"
+                variant="gradient"
+                className="flex-1"
               >
                 {saving ? "Salvando..." : "Salvar Alterações"}
               </Button>

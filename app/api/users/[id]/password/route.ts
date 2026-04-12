@@ -65,7 +65,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });

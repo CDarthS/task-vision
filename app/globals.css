@@ -114,6 +114,35 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ─── Task Vision Design Tokens ───────────────────────────── */
+:root {
+  /* Gradiente primario (botoes, avatares, logos) */
+  --tv-gradient-primary: linear-gradient(to right, #6366f1, #7c3aed);
+  --tv-gradient-primary-hover: linear-gradient(to right, #4f46e5, #6d28d9);
+  --tv-gradient-primary-bg: linear-gradient(to bottom right, #6366f1, #7c3aed);
+
+  /* Cores de superficie do tema dark */
+  --tv-surface: #020617;           /* slate-950 */
+  --tv-surface-raised: rgba(255, 255, 255, 0.05);  /* white/5 */
+  --tv-border: rgba(255, 255, 255, 0.1);            /* white/10 */
+  --tv-border-hover: rgba(255, 255, 255, 0.2);      /* white/20 */
+
+  /* Texto */
+  --tv-text-primary: #ffffff;
+  --tv-text-secondary: #94a3b8;    /* slate-400 */
+  --tv-text-muted: #64748b;        /* slate-500 */
+
+  /* Feedback */
+  --tv-error-bg: rgba(239, 68, 68, 0.1);
+  --tv-error-border: rgba(239, 68, 68, 0.2);
+  --tv-error-text: #f87171;        /* red-400 */
+  --tv-success-text: #34d399;      /* emerald-400 */
+
+  /* Espacamentos padrao de card/modal */
+  --tv-radius-card: 1rem;          /* rounded-2xl = 16px */
+  --tv-radius-modal: 1rem;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -123,5 +152,48 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ─── Utility classes do Design System ──────────────────── */
+@layer utilities {
+  .tv-gradient-btn {
+    background: var(--tv-gradient-primary);
+    color: white;
+    cursor: pointer;
+  }
+  .tv-gradient-btn:hover {
+    background: var(--tv-gradient-primary-hover);
+  }
+  .tv-surface-card {
+    background: var(--tv-surface-raised);
+    border: 1px solid var(--tv-border);
+  }
+  .tv-surface-card:hover {
+    border-color: var(--tv-border-hover);
+  }
+  .tv-error-box {
+    background: var(--tv-error-bg);
+    border: 1px solid var(--tv-error-border);
+    color: var(--tv-error-text);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+  .tv-avatar {
+    background: var(--tv-gradient-primary-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 500;
+    border-radius: 9999px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+  .tv-modal {
+    background: var(--tv-surface);
+    border: 1px solid var(--tv-border);
+    color: var(--tv-text-primary);
   }
 }

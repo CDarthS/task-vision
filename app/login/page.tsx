@@ -110,7 +110,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+            <div className="tv-error-box">
               {error}
             </div>
           )}
@@ -118,7 +118,8 @@ export default function LoginPage() {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-medium py-2.5 cursor-pointer"
+            variant="gradient"
+            className="w-full py-2.5"
           >
             {loading ? "Entrando..." : "Entrar"}
           </Button>

@@ -121,3 +121,47 @@ export async function PATCH(
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
+
+// DELETE /api/boards/[id] — deletar board (cascade deleta listas e cards)
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requireUser();
+    const { id } = await params;
+
+    const board = await prisma.board.findUnique({
+      where: { id },
+      select: { id: true, workspaceId: true },
+    });
+
+    if (!board) {
+      return NextResponse.json(
+        { error: "Board nao encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Verifica se e owner do workspace ou admin
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: board.workspaceId },
+      select: { ownerId: true },
+    });
+
+    const isOwner = workspace?.ownerId === user.id;
+    const isAdmin = user.role === "ADMIN";
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
+    }
+
+    await prisma.board.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}

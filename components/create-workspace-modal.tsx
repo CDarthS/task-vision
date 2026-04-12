@@ -59,7 +59,7 @@ export function CreateWorkspaceModal() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white cursor-pointer" />
+          <Button variant="gradient" />
         }
       >
         + Novo Workspace
@@ -97,7 +97,7 @@ export function CreateWorkspaceModal() {
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+            <div className="tv-error-box">
               {error}
             </div>
           )}
@@ -105,7 +105,8 @@ export function CreateWorkspaceModal() {
           <Button
             type="submit"
             disabled={creating || !name.trim()}
-            className="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white cursor-pointer"
+            variant="gradient"
+            className="w-full"
           >
             {creating ? "Criando..." : "Criar Workspace"}
           </Button>

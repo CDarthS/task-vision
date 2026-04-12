@@ -18,42 +18,7 @@ import { BoardHeader } from "./board-header";
 import { KanbanList } from "./kanban-list";
 import { KanbanCard } from "./kanban-card";
 import { CardDetailModal } from "./card-detail-modal";
-
-interface CardData {
-  id: string;
-  title: string;
-  description: string | null;
-  position: number;
-  listId: string;
-  dueDate: string | null;
-  isDueCompleted: boolean;
-  creatorId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ListData {
-  id: string;
-  title: string;
-  position: number;
-  boardId: string;
-  createdAt: string;
-  updatedAt: string;
-  cards: CardData[];
-}
-
-interface BoardData {
-  id: string;
-  title: string;
-  background: string | null;
-  workspaceId: string;
-  workspace: {
-    id: string;
-    name: string;
-    ownerId: string;
-  };
-  lists: ListData[];
-}
+import type { CardData, ListData, BoardData } from "@/lib/types";
 
 interface BoardClientProps {
   board: BoardData;

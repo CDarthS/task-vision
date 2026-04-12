@@ -148,7 +148,7 @@ export async function DELETE(
     }
 
     await prisma.workspace.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {
       return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });

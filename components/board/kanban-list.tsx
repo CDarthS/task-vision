@@ -4,19 +4,7 @@ import { useState, useEffect } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { KanbanCard } from "./kanban-card";
-
-interface CardData {
-  id: string;
-  title: string;
-  description: string | null;
-  position: number;
-  listId: string;
-  dueDate: string | null;
-  isDueCompleted: boolean;
-  creatorId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { CardData } from "@/lib/types";
 
 interface KanbanListProps {
   id: string;

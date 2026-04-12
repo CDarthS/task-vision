@@ -457,6 +457,61 @@ taskvision/
 
 ---
 
+## 2026-04-12 — Health Check: Prioridades 2 e 3 (Design System + Funcionalidade)
+
+### Contexto
+- Analise profunda (health check) identificou 32 issues no projeto
+- Prioridade 1 (seguranca) descartada — ambiente interno de equipe
+- Executadas Prioridades 2 (consistencia/design system) e 3 (funcionalidade faltante)
+
+### P2.5 — CSS Variables extraidas para globals.css
+- Criadas variaveis `--tv-gradient-primary`, `--tv-gradient-primary-hover`, `--tv-gradient-primary-bg`
+- Criadas variaveis de superficie: `--tv-surface`, `--tv-surface-raised`, `--tv-border`, `--tv-border-hover`
+- Criadas variaveis de texto: `--tv-text-primary`, `--tv-text-secondary`, `--tv-text-muted`
+- Criadas variaveis de feedback: `--tv-error-bg`, `--tv-error-border`, `--tv-error-text`, `--tv-success-text`
+- Criadas utility classes: `.tv-gradient-btn`, `.tv-surface-card`, `.tv-error-box`, `.tv-avatar`, `.tv-modal`
+
+### P2.6 — Variante `gradient` adicionada ao Button shadcn
+- Nova variante `gradient` em `components/ui/button.tsx` usando classe `tv-gradient-btn`
+- Substituidas 8+ repeticoes do gradiente hardcoded `from-indigo-500 to-violet-600` por `variant="gradient"`
+- Arquivos atualizados: `create-workspace-modal.tsx`, `create-board-modal.tsx`, `login/page.tsx`, `admin/users/page.tsx`, `user-profile-modal.tsx`
+- Error boxes hardcoded (`bg-red-500/10 border-red-500/20`) substituidos por `.tv-error-box` nos mesmos arquivos
+
+### P2.7 — Formato de resposta API padronizado
+- Todas as APIs agora retornam `{ success: true }` (antes: 4 usavam `{ ok: true }`)
+- Arquivos corrigidos: `auth/logout/route.ts`, `users/[id]/route.ts` (DELETE), `users/[id]/password/route.ts`, `workspaces/[id]/route.ts` (DELETE)
+
+### P2.8 — Tipo CardData extraido para lib/types.ts
+- Criado `lib/types.ts` com interfaces `CardData`, `ListData`, `BoardData`
+- Removidas 3 copias duplicadas de `CardData` em: `board-client.tsx`, `kanban-list.tsx`, `card-detail-modal.tsx`
+- Agora todos importam de `@/lib/types`
+
+### P3.9 — DELETE para Board criado
+- Adicionado handler `DELETE` em `app/api/boards/[id]/route.ts`
+- Verifica se usuario e owner do workspace ou admin antes de deletar
+- Cascade delete remove listas e cards automaticamente
+
+### P3.10 — DELETE para List criado
+- Adicionado handler `DELETE` em `app/api/lists/[id]/route.ts`
+- Verifica membership no workspace antes de deletar
+- Cascade delete remove cards automaticamente
+
+### P3.11 — UserProfileModal corrigido para tema dark
+- `DialogContent` agora usa classe `.tv-modal` (bg escuro + borda + texto branco)
+- Titulo `DialogTitle` recebeu `text-white`
+- Avatar usa `.tv-avatar` em vez de gradiente hardcoded + borda escura
+- Nome do usuario: `text-gray-900` → `text-white`
+- Email: `text-gray-500` → `text-slate-400`
+- Botao principal: `bg-indigo-600` → `variant="gradient"`
+- Botao remover: `border-red-200 text-red-600 hover:bg-red-50` → `variant="destructive"` (consistente com tema dark)
+- Error: inline `text-red-500` → `.tv-error-box`
+
+### Verificacao
+- `npm run build` — 0 erros, todas as rotas compilam
+- `npm run lint` — 0 erros (2 warnings pre-existentes nao relacionados)
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

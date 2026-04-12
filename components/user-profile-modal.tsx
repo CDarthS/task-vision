@@ -116,15 +116,15 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="tv-modal sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Meu Perfil</DialogTitle>
+          <DialogTitle className="text-white">Meu Perfil</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-6 py-4">
           <div className="relative group">
             {/* Avatar display */}
-            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 flex shadow-sm bg-gradient-to-br from-indigo-500 to-violet-600 items-center justify-center text-3xl font-medium text-white">
+            <div className="w-24 h-24 tv-avatar border-4 border-white/10 text-3xl">
               {user.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
@@ -156,25 +156,26 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
           </div>
 
           <div className="flex flex-col items-center gap-1 text-center">
-            <h3 className="font-semibold text-gray-900 text-lg">{user.name}</h3>
-            <p className="text-sm text-gray-500">{user.email}</p>
+            <h3 className="font-semibold text-white text-lg">{user.name}</h3>
+            <p className="text-sm text-slate-400">{user.email}</p>
           </div>
 
-          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+          {error && <p className="tv-error-box mt-2">{error}</p>}
 
           <div className="flex gap-2 w-full mt-4">
             <Button
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+              variant="gradient"
+              className="flex-1"
               onClick={() => fileInputRef.current?.click()}
               disabled={loading}
             >
               {loading ? "Salvando..." : user.image ? "Trocar Foto" : "Adicionar Foto"}
             </Button>
-            
+
             {user.image && (
               <Button
-                variant="outline"
-                className="flex-shrink-0 border-red-200 text-red-600 hover:bg-red-50"
+                variant="destructive"
+                className="flex-shrink-0"
                 onClick={handleRemoveImage}
                 disabled={loading}
               >

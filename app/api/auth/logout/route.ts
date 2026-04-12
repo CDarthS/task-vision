@@ -15,7 +15,7 @@ export async function DELETE() {
       }
     }
 
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json({ success: true });
     response.cookies.set("accessToken", "", { maxAge: 0, path: "/" });
     response.cookies.set("httpOnlyToken", "", { maxAge: 0, path: "/" });
     return response;
