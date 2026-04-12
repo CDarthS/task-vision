@@ -7,6 +7,8 @@ import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 import { dueDateQueue } from "@/lib/queue/due-date-queue";
 import { getWorkerStatus } from "@/lib/queue/due-date-worker";
+import { notificationQueue } from "@/lib/queue/notification-queue";
+import { getNotificationWorkerStatus } from "@/lib/queue/notification-worker";
 
 export async function GET() {
   try {
@@ -20,17 +22,15 @@ export async function GET() {
     const versionMatch = info.match(/redis_version:(\S+)/);
     const redisVersion = versionMatch ? versionMatch[1] : "unknown";
 
-    // 3. Status da fila de due dates
-    const queueCounts = await dueDateQueue.getJobCounts(
-      "waiting",
-      "active",
-      "completed",
-      "failed",
-      "delayed"
-    );
+    // 3. Status das filas
+    const [dueDateCounts, notifCounts] = await Promise.all([
+      dueDateQueue.getJobCounts("waiting", "active", "completed", "failed", "delayed"),
+      notificationQueue.getJobCounts("waiting", "active", "completed", "failed", "delayed"),
+    ]);
 
-    // 4. Status do worker
-    const workerStatus = getWorkerStatus();
+    // 4. Status dos workers
+    const dueDateWorkerStatus = getWorkerStatus();
+    const notifWorkerStatus = getNotificationWorkerStatus();
 
     return NextResponse.json({
       status: "healthy",
@@ -41,15 +41,23 @@ export async function GET() {
       },
       queues: {
         "due-date-notifications": {
-          waiting: queueCounts.waiting,
-          active: queueCounts.active,
-          completed: queueCounts.completed,
-          failed: queueCounts.failed,
-          delayed: queueCounts.delayed,
+          waiting: dueDateCounts.waiting,
+          active: dueDateCounts.active,
+          completed: dueDateCounts.completed,
+          failed: dueDateCounts.failed,
+          delayed: dueDateCounts.delayed,
+        },
+        "notification-dispatch": {
+          waiting: notifCounts.waiting,
+          active: notifCounts.active,
+          completed: notifCounts.completed,
+          failed: notifCounts.failed,
+          delayed: notifCounts.delayed,
         },
       },
-      worker: {
-        status: workerStatus,
+      workers: {
+        "due-date": dueDateWorkerStatus,
+        "notification-dispatch": notifWorkerStatus,
       },
       timestamp: new Date().toISOString(),
     });

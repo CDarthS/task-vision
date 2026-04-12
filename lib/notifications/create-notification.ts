@@ -1,10 +1,14 @@
 // lib/notifications/create-notification.ts
-// Helper centralizado para criar notificações no banco.
-// Todas as APIs que disparam notificações devem usar este helper.
+// Helper centralizado para criar notificações.
+//
+// Fase R2: agora enfileira no BullMQ para processamento assincrono.
+// Se Redis/BullMQ nao estiver disponivel, faz fallback sincrono (Prisma direto).
 
 import { prisma } from "@/lib/prisma";
 import type { NotificationType } from "@/lib/generated/prisma/enums";
 import { invalidateCount, invalidateCountBatch } from "./cache";
+import { notificationQueue } from "@/lib/queue/notification-queue";
+import { ensureNotificationWorkerRunning } from "@/lib/queue/notification-worker";
 
 export interface CreateNotificationInput {
   userId: string;       // Quem recebe
@@ -17,8 +21,8 @@ export interface CreateNotificationInput {
 }
 
 /**
- * Cria uma única notificação no banco de dados.
- * Não notifica o próprio criador (skip silencioso se userId === creatorId).
+ * Cria uma única notificação.
+ * Tenta enfileirar no BullMQ. Se falhar, faz fallback sincrono.
  */
 export async function createNotification(input: CreateNotificationInput) {
   // Nunca notificar o próprio autor da ação
@@ -26,6 +30,30 @@ export async function createNotification(input: CreateNotificationInput) {
     return null;
   }
 
+  // Tenta enfileirar no BullMQ
+  try {
+    ensureNotificationWorkerRunning();
+    await notificationQueue.add(
+      "notify-single",
+      {
+        kind: "notify-single" as const,
+        userId: input.userId,
+        creatorId: input.creatorId,
+        cardId: input.cardId,
+        boardId: input.boardId,
+        commentId: input.commentId,
+        type: input.type,
+        data: input.data,
+      },
+      { jobId: `single-${input.cardId}-${input.userId}-${Date.now()}` }
+    );
+    return { queued: true };
+  } catch {
+    // Fallback sincrono se BullMQ falhar
+    console.warn("[Notification] BullMQ indisponivel, usando fallback sincrono");
+  }
+
+  // Fallback sincrono
   try {
     const notification = await prisma.notification.create({
       data: {
@@ -39,27 +67,17 @@ export async function createNotification(input: CreateNotificationInput) {
       },
     });
 
-    // Invalida cache de contagem do destinatario
     invalidateCount(input.userId);
-
     return notification;
   } catch (error) {
-    // Log silencioso — falha na notificação não deve quebrar a ação principal
     console.error("[Notification] Erro ao criar notificação:", error);
     return null;
   }
 }
 
 /**
- * Cria notificações para todos os membros de um card,
- * exceto o próprio criador da ação.
- * 
- * @param excludeUserId - ID do user que causou a ação (não será notificado)
- * @param cardId - ID do card
- * @param boardId - ID do board (desnormalizado)
- * @param type - Tipo da notificação
- * @param data - Dados extras
- * @param commentId - ID do comentário (opcional)
+ * Cria notificações para todos os membros/watchers de um card.
+ * Tenta enfileirar no BullMQ. Se falhar, faz fallback sincrono.
  */
 export async function notifyCardMembers(params: {
   excludeUserId: string;
@@ -71,19 +89,35 @@ export async function notifyCardMembers(params: {
 }) {
   const { excludeUserId, cardId, boardId, type, data, commentId } = params;
 
+  // Tenta enfileirar no BullMQ
   try {
-    // Busca todos os membros do card
-    const cardMembers = await prisma.cardMember.findMany({
-      where: { cardId },
-      select: { userId: true },
-    });
+    ensureNotificationWorkerRunning();
+    await notificationQueue.add(
+      "notify-card-members",
+      {
+        kind: "notify-card-members" as const,
+        excludeUserId,
+        cardId,
+        boardId,
+        type,
+        data,
+        commentId,
+      },
+      { jobId: `members-${cardId}-${type}-${Date.now()}` }
+    );
+    return { queued: true };
+  } catch {
+    // Fallback sincrono se BullMQ falhar
+    console.warn("[Notification] BullMQ indisponivel, usando fallback sincrono");
+  }
 
-    const cardWatchers = await prisma.cardWatcher.findMany({
-      where: { cardId },
-      select: { userId: true },
-    });
+  // Fallback sincrono
+  try {
+    const [cardMembers, cardWatchers] = await Promise.all([
+      prisma.cardMember.findMany({ where: { cardId }, select: { userId: true } }),
+      prisma.cardWatcher.findMany({ where: { cardId }, select: { userId: true } }),
+    ]);
 
-    // Filtra o autor da ação e une members e watchers em um Set único
     const combinedIds = new Set([
       ...cardMembers.map((m) => m.userId),
       ...cardWatchers.map((w) => w.userId),
@@ -91,10 +125,8 @@ export async function notifyCardMembers(params: {
     combinedIds.delete(excludeUserId);
 
     const recipientIds = Array.from(combinedIds);
-
     if (recipientIds.length === 0) return [];
 
-    // Cria notificações em batch
     const notifications = await prisma.notification.createMany({
       data: recipientIds.map((userId) => ({
         userId,
@@ -107,9 +139,7 @@ export async function notifyCardMembers(params: {
       })),
     });
 
-    // Invalida cache de contagem de todos os destinatarios
     invalidateCountBatch(recipientIds);
-
     return notifications;
   } catch (error) {
     console.error("[Notification] Erro ao notificar membros do card:", error);

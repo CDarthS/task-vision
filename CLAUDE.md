@@ -853,6 +853,52 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Fase Redis R2: Filas de notificacao (BullMQ)
+
+### Contexto
+- Antes: `notifyCardMembers()` fazia 3 queries Prisma sincronas dentro das API Routes
+- Isso atrasava as respostas de PATCH/POST em ~100-200ms
+- Agora: as APIs apenas enfileiram no BullMQ e retornam imediatamente
+
+### Arquivos criados
+- `lib/queue/notification-queue.ts` — fila "notification-dispatch" com 2 tipos de job:
+  - `notify-single`: cria 1 notificacao para 1 usuario
+  - `notify-card-members`: busca membros/watchers + cria batch
+  - Retry: 3 tentativas, backoff exponencial (3s, 6s, 12s)
+  - Cleanup: completos removidos apos 1h, falhados apos 24h
+
+- `lib/queue/notification-worker.ts` — worker que processa os jobs:
+  - `notify-single`: cria notificacao + invalida cache Redis
+  - `notify-card-members`: busca membros + watchers via Promise.all + createMany + invalida cache batch
+  - Concurrency: 3 (processa ate 3 jobs em paralelo)
+  - Rate limit: max 20 jobs por minuto
+
+### Arquivos modificados
+
+**`lib/notifications/create-notification.ts`:**
+- `createNotification()`: tenta enfileirar no BullMQ → se falhar → fallback sincrono (Prisma direto)
+- `notifyCardMembers()`: mesmo padrao (BullMQ com fallback)
+- Garante que o worker esteja rodando via `ensureNotificationWorkerRunning()`
+
+**`app/api/queue/health/route.ts`:**
+- Agora mostra status de AMBAS as filas: `due-date-notifications` + `notification-dispatch`
+- Mostra status de AMBOS os workers
+
+### Erros e correcoes
+| # | Erro | Causa | Correcao |
+|---|------|-------|----------|
+| 1 | `string not assignable to NotificationType` | `data.type` e string no job, Prisma espera enum | Cast `as NotificationType` no worker |
+
+### Resultado
+- APIs de mover card, comentar, adicionar membro: resposta ~100-200ms mais rapida
+- Notificacoes processadas em background pelo worker
+- Se Redis cair, fallback sincrono garante que notificacoes continuem funcionando
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
