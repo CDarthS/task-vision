@@ -131,6 +131,21 @@ export function CardDetailModal({
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const memberPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (memberPickerRef.current && !memberPickerRef.current.contains(event.target as Node)) {
+        setShowMemberPicker(false);
+      }
+    }
+    if (showMemberPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMemberPicker]);
 
   // Carrega comentarios, checklists, labels e membros ao abrir
   useEffect(() => {
@@ -796,7 +811,7 @@ export function CardDetailModal({
 
             {/* Membros + Data Entrega */}
             <div className="flex items-center gap-6 mb-6">
-              <div className="relative">
+              <div ref={memberPickerRef} className="relative">
                 <p className="text-xs text-gray-500 font-medium mb-1.5">Membros</p>
                 <div className="flex items-center gap-1">
                   {cardMembers.map((member) => {
