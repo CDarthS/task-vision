@@ -537,6 +537,50 @@ taskvision/
 
 ---
 
+## 2026-04-12 — Bugfix: Drag-and-Drop snap-back
+
+### Problema reportado
+- Ao arrastar um card de "Solicitacoes" para "Fazendo", o card sofria "snap-back" (voltava para a lista original)
+- A persistencia no banco falhava silenciosamente
+
+### Causa raiz — 3 bugs identificados
+
+**BUG 1 (snap-back): `handleDragOver` usava closure stale dentro de `setLists(prev => ...)`**
+- `fromList` e `toList` eram buscados de `lists` (closure) em vez de `prev` (estado atual)
+- Quando `handleDragOver` disparava multiplas vezes antes do re-render, as referencias ficavam desatualizadas
+- Resultado: card duplicado ou perdido na segunda chamada
+
+**BUG 2 (persistencia falha): `handleDragEnd` retornava sem chamar fetch**
+- Quando o card era largado na area da lista (nao em cima de outro card), `overId` era o ID da lista
+- `currentList.cards.findIndex(c => c.id === overId)` retornava -1 (nenhum card com ID de lista)
+- Condicao `if (newIndex === -1) return prev` retornava SEM chamar `fetch` para persistir
+- Card ficava na UI nova mas nao era salvo no banco — ao recarregar, voltava
+
+**BUG 3 (menor): fetch dentro de `setLists` callback**
+- React pode chamar o updater function multiplas vezes (StrictMode, concurrent)
+- `fetch` dentro do callback poderia disparar requests duplicados
+
+### Correcoes aplicadas em `components/board/board-client.tsx`
+
+**handleDragOver reescrito:**
+- `fromList`, `toList` e `card` agora sao buscados de `prev` (dentro do callback)
+- Verificacao `if (!card) return prev` adicionada para evitar crash em card nao encontrado
+
+**handleDragEnd reescrito:**
+- Removida condicao `if (active.id === over.id) return` que impedia persistencia
+- Caso 1: reordena cards na mesma lista → `arrayMove` + persist
+- Caso 2: card movido entre listas pelo `handleDragOver` → apenas persiste posicao atual
+- SEMPRE chama `persistCardMove()` independente do cenario
+
+**Nova funcao `persistCardMove()`:**
+- Extraida do callback do setLists para evitar chamadas duplicadas
+- Fire-and-forget com `.catch()` silencioso
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

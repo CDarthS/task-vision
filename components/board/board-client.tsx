@@ -86,7 +86,6 @@ export function BoardClient({ board, userName, initialCardId }: BoardClientProps
   // ─── DnD Handlers ────────────────────────────────────────────────────
   function handleDragStart(event: DragStartEvent) {
     const { active } = event;
-    // Encontra o card ativo em qualquer lista
     for (const list of lists) {
       const found = list.cards.find((c) => c.id === active.id);
       if (found) {
@@ -103,19 +102,20 @@ export function BoardClient({ board, userName, initialCardId }: BoardClientProps
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Descobre a lista de origem do card arrastado
-    const fromList = lists.find((l) => l.cards.some((c) => c.id === activeId));
-    if (!fromList) return;
-
-    // Destino pode ser um card OU uma lista (droppable vazio)
-    const toList = lists.find(
-      (l) => l.id === overId || l.cards.some((c) => c.id === overId)
-    );
-    if (!toList || fromList.id === toList.id) return;
-
-    // Move o card entre listas (update otimista de UI)
+    // FIX: todo o calculo acontece dentro de setLists(prev => ...) para
+    // usar o estado mais recente (prev), evitando closure stale.
     setLists((prev) => {
-      const card = fromList.cards.find((c) => c.id === activeId)!;
+      const fromList = prev.find((l) => l.cards.some((c) => c.id === activeId));
+      if (!fromList) return prev;
+
+      const toList = prev.find(
+        (l) => l.id === overId || l.cards.some((c) => c.id === overId)
+      );
+      if (!toList || fromList.id === toList.id) return prev;
+
+      const card = fromList.cards.find((c) => c.id === activeId);
+      if (!card) return prev;
+
       const overIndex = toList.cards.findIndex((c) => c.id === overId);
       const insertAt = overIndex >= 0 ? overIndex : toList.cards.length;
 
@@ -136,36 +136,49 @@ export function BoardClient({ board, userName, initialCardId }: BoardClientProps
   function handleDragEnd(event: DragEndEvent) {
     setActiveCard(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    // FIX: calcula o novo estado e persiste FORA do setLists para evitar
+    // chamadas duplicadas do fetch pelo React.
     setLists((prev) => {
-      // Encontra a lista que agora contém o card ativo (após o handleDragOver)
       const currentList = prev.find((l) => l.cards.some((c) => c.id === activeId));
       if (!currentList) return prev;
 
-      const oldIndex = currentList.cards.findIndex((c) => c.id === activeId);
-      // overId pode ser o id de um card irmão ou o id da própria lista
-      const newIndex = currentList.cards.findIndex((c) => c.id === overId);
+      // Se over.id e um card irmao na mesma lista, reordena
+      const overIndex = currentList.cards.findIndex((c) => c.id === overId);
 
-      if (newIndex === -1) return prev; // dropped numa lista vazia — já está lá
+      if (overIndex >= 0 && activeId !== overId) {
+        const oldIndex = currentList.cards.findIndex((c) => c.id === activeId);
+        const reordered = arrayMove(currentList.cards, oldIndex, overIndex);
+        const newPos = calcPosition(currentList.cards, overIndex, activeId);
 
-      const reordered = arrayMove(currentList.cards, oldIndex, newIndex);
-      const newPos = calcPosition(currentList.cards, newIndex, activeId);
+        // Persiste (fire-and-forget)
+        persistCardMove(activeId, currentList.id, newPos);
 
-      // Persiste no backend (fire-and-forget)
-      fetch(`/api/cards/${activeId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listId: currentList.id, position: newPos }),
-      }).catch(() => {/* silently ignore */});
+        return prev.map((l) =>
+          l.id === currentList.id ? { ...l, cards: reordered } : l
+        );
+      }
 
-      return prev.map((l) =>
-        l.id === currentList.id ? { ...l, cards: reordered } : l
-      );
+      // Card foi movido entre listas pelo handleDragOver — persiste a posicao atual
+      const cardIndex = currentList.cards.findIndex((c) => c.id === activeId);
+      const newPos = calcPosition(currentList.cards, cardIndex, activeId);
+      persistCardMove(activeId, currentList.id, newPos);
+
+      return prev;
     });
+  }
+
+  /** Persiste a posicao do card no banco (fire-and-forget). */
+  function persistCardMove(cardId: string, listId: string, position: number) {
+    fetch(`/api/cards/${cardId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listId, position }),
+    }).catch(() => {/* silently ignore */});
   }
 
   // ─── Handlers normais ────────────────────────────────────────────────
