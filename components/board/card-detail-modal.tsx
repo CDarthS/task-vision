@@ -605,14 +605,17 @@ export function CardDetailModal({
   }
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir este cartao?")) return;
+    if (!confirm("Tem certeza que deseja excluir este cartao? Esta acao nao pode ser desfeita.")) return;
     try {
       const res = await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
       if (res.ok) {
         onDelete(card.id);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(`Erro ao excluir: ${data.error || `Status ${res.status}`}`);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      alert(`Erro de conexao ao excluir o cartao: ${err instanceof Error ? err.message : "desconhecido"}`);
     }
   }
 
@@ -758,8 +761,10 @@ export function CardDetailModal({
                   </button>
                   <div className="border-t border-gray-100 my-1" />
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setShowActionsMenu(false);
+                      // Pequeno delay para fechar o menu antes do confirm()
+                      await new Promise((r) => setTimeout(r, 50));
                       handleDelete();
                     }}
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"

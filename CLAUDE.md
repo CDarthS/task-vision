@@ -612,6 +612,30 @@ taskvision/
 
 ---
 
+## 2026-04-12 — Bugfix: Botao Excluir cartao nao dava feedback de erro
+
+### Problema reportado
+- Usuario clicava em "Excluir cartao" no menu de acoes e nada acontecia
+- O `handleDelete` engolia todos os erros silenciosamente (`catch { // silently fail }`)
+- Se a API retornasse erro (ex: 403, 500), nenhum feedback era dado ao usuario
+
+### Correcoes em `components/board/card-detail-modal.tsx`
+
+**handleDelete melhorado:**
+- Se API retorna erro: mostra `alert()` com a mensagem de erro do backend
+- Se fetch falha (rede): mostra `alert()` com a mensagem de erro de conexao
+- Mensagem do confirm mais clara: "Esta acao nao pode ser desfeita"
+
+**Botao Excluir — timing fix:**
+- Adicionado `await setTimeout(50ms)` entre `setShowActionsMenu(false)` e `handleDelete()`
+- Garante que o dropdown fecha ANTES do `confirm()` nativo do browser aparecer
+- Evita conflito de re-render do React com o dialog bloqueante
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
