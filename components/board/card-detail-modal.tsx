@@ -201,15 +201,13 @@ export function CardDetailModal({
     try {
       const [cardRes, wsRes] = await Promise.all([
         fetch(`/api/cards/${card.id}/members`),
-        fetch(`/api/workspaces/${workspaceId}`),
+        fetch(`/api/workspaces/${workspaceId}/members`),
       ]);
       const cardData = await cardRes.json();
       const wsData = await wsRes.json();
       if (cardRes.ok) setCardMembers(cardData.members);
-      if (wsRes.ok && wsData.workspace?.members) {
-        setWorkspaceMembers(
-          wsData.workspace.members.map((m: { user: MemberData }) => m.user)
-        );
+      if (wsRes.ok && wsData.members) {
+        setWorkspaceMembers(wsData.members);
       }
     } catch { /* silently fail */ }
   }

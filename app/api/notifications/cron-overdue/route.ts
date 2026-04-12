@@ -33,40 +33,60 @@ export async function GET() {
       },
     });
 
-    for (const card of overdueCards) {
-      if (card.members.length === 0) continue;
+    // Filtra apenas cards com membros
+    const cardsWithMembers = overdueCards.filter((c) => c.members.length > 0);
+    const cardIds = cardsWithMembers.map((c) => c.id);
 
-      const memberUserIds = card.members.map((m) => m.userId);
+    // Batch query: busca TODAS as notificacoes DUE_DATE_OVERDUE existentes de uma vez
+    const existingNotifications = cardIds.length > 0
+      ? await prisma.notification.findMany({
+          where: {
+            cardId: { in: cardIds },
+            type: "DUE_DATE_OVERDUE",
+          },
+          select: { cardId: true, userId: true },
+        })
+      : [];
+
+    // Monta set de "cardId:userId" ja notificados
+    const alreadyNotified = new Set(
+      existingNotifications.map((n) => `${n.cardId}:${n.userId}`)
+    );
+
+    // Coleta todos os createMany data de uma vez
+    const allNewNotifications: {
+      userId: string;
+      creatorId: null;
+      cardId: string;
+      boardId: string;
+      type: "DUE_DATE_OVERDUE";
+      data: object;
+    }[] = [];
+
+    for (const card of cardsWithMembers) {
       const boardId = card.list.board.id;
 
-      const existingNotifications = await prisma.notification.findMany({
-        where: {
-          cardId: card.id,
-          type: "DUE_DATE_OVERDUE",
-          userId: { in: memberUserIds },
-        },
-        select: { userId: true },
-      });
+      for (const member of card.members) {
+        if (alreadyNotified.has(`${card.id}:${member.userId}`)) continue;
 
-      const alreadyNotifiedIds = new Set(existingNotifications.map((n) => n.userId));
-      const newRecipientIds = memberUserIds.filter((id) => !alreadyNotifiedIds.has(id));
-
-      if (newRecipientIds.length === 0) continue;
-
-      const result = await prisma.notification.createMany({
-        data: newRecipientIds.map((userId) => ({
-          userId,
+        allNewNotifications.push({
+          userId: member.userId,
           creatorId: null,
           cardId: card.id,
           boardId,
-          type: "DUE_DATE_OVERDUE" as const,
+          type: "DUE_DATE_OVERDUE",
           data: {
             cardTitle: card.title,
             dueDate: card.dueDate!.toISOString(),
           } as object,
-        })),
-      });
+        });
+      }
+    }
 
+    if (allNewNotifications.length > 0) {
+      const result = await prisma.notification.createMany({
+        data: allNewNotifications,
+      });
       totalCreated += result.count;
     }
 
@@ -100,41 +120,61 @@ export async function GET() {
       },
     });
 
+    // Batch query: busca notificacoes CHECKLIST_ITEM_OVERDUE existentes
+    const itemIds = overdueItems.map((i) => i.id);
+    const existingItemNotifications = itemIds.length > 0
+      ? await prisma.notification.findMany({
+          where: {
+            type: "CHECKLIST_ITEM_OVERDUE",
+            userId: { in: overdueItems.filter((i) => i.assigneeId).map((i) => i.assigneeId!) },
+          },
+          select: { data: true },
+        })
+      : [];
+
+    // Extrai itemIds ja notificados do campo JSON data
+    const notifiedItemIds = new Set(
+      existingItemNotifications
+        .map((n) => (n.data as { itemId?: string })?.itemId)
+        .filter(Boolean)
+    );
+
+    const newItemNotifications: {
+      userId: string;
+      creatorId: null;
+      cardId: string;
+      boardId: string;
+      type: "CHECKLIST_ITEM_OVERDUE";
+      data: object;
+    }[] = [];
+
     for (const item of overdueItems) {
       if (!item.assigneeId) continue;
+      if (notifiedItemIds.has(item.id)) continue;
 
       const card = item.checklist.card;
       const boardId = card.list.board.id;
 
-      // Idempotente: verifica se já foi notificado para este item
-      const existing = await prisma.notification.findFirst({
-        where: {
-          userId: item.assigneeId,
-          type: "CHECKLIST_ITEM_OVERDUE",
-          // Armazenamos o itemId em data para evitar duplicatas
-          data: { path: ["itemId"], equals: item.id },
-        },
-      });
-
-      if (existing) continue;
-
-      await prisma.notification.create({
+      newItemNotifications.push({
+        userId: item.assigneeId,
+        creatorId: null,
+        cardId: card.id,
+        boardId,
+        type: "CHECKLIST_ITEM_OVERDUE",
         data: {
-          userId: item.assigneeId,
-          creatorId: null,
-          cardId: card.id,
-          boardId,
-          type: "CHECKLIST_ITEM_OVERDUE",
-          data: {
-            itemId: item.id,
-            itemTitle: item.title,
-            cardTitle: card.title,
-            dueDate: item.dueDate!.toISOString(),
-          } as object,
-        },
+          itemId: item.id,
+          itemTitle: item.title,
+          cardTitle: card.title,
+          dueDate: item.dueDate!.toISOString(),
+        } as object,
       });
+    }
 
-      totalCreated += 1;
+    if (newItemNotifications.length > 0) {
+      const result = await prisma.notification.createMany({
+        data: newItemNotifications,
+      });
+      totalCreated += result.count;
     }
 
     return NextResponse.json({

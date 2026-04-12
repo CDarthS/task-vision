@@ -2,6 +2,45 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 
+// GET /api/workspaces/[id]/members — listar membros do workspace (leve, sem carregar workspace inteiro)
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requireUser();
+    const { id } = await params;
+
+    // Verifica se o usuario tem acesso ao workspace
+    const membership = await prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId: id, userId: user.id } },
+    });
+
+    if (!membership && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
+    }
+
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId: id },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, image: true },
+        },
+      },
+      orderBy: { joinedAt: "asc" },
+    });
+
+    return NextResponse.json({
+      members: members.map((m) => m.user),
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}
+
 // POST /api/workspaces/[id]/members — adicionar membro ao workspace
 export async function POST(
   request: NextRequest,

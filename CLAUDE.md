@@ -512,6 +512,31 @@ taskvision/
 
 ---
 
+## 2026-04-12 — Health Check: Prioridade 4 (Performance)
+
+### P4.12 — Deduplicar auth com React.cache()
+- `lib/auth/get-current-user.ts`: `getCurrentUser` agora e wrapped com `React.cache()`
+- React.cache() deduplica chamadas dentro do mesmo request do servidor
+- Layout chama `getCurrentUser()` → pages chamam de novo → reutiliza resultado (1 query em vez de 2)
+- Nenhuma mudanca necessaria nas pages — o cache e transparente
+
+### P4.13 — Otimizar cron-overdue (batch query)
+- **Parte 1 (Cards):** Antes: 1 query de `notification.findMany` por card overdue (N+1). Agora: 1 unica batch query `WHERE cardId IN (...)` para todos os cards, depois `createMany` unico
+- **Parte 2 (Checklist items):** Mesmo padrao — 1 batch query para buscar notificacoes existentes, depois `createMany` unico
+- Resultado: de N+1 queries para 2 queries fixas (1 batch select + 1 batch insert) independente do numero de cards
+
+### P4.14 — Endpoint GET /api/workspaces/[id]/members
+- Criado handler `GET` em `app/api/workspaces/[id]/members/route.ts`
+- Retorna apenas a lista de users membros (id, name, email, image) — sem carregar boards, owner, counts
+- `card-detail-modal.tsx` atualizado: `loadMembers()` agora chama `/api/workspaces/${id}/members` em vez de `/api/workspaces/${id}` (que retornava o workspace inteiro)
+- Reduz payload de resposta significativamente para workspaces com muitos boards
+
+### Verificacao
+- `npm run build` — 0 erros
+- `npm run lint` — 0 erros (2 warnings pre-existentes)
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

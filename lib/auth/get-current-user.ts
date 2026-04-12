@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { verifyToken } from "./jwt";
 import { getSessionByToken } from "./session";
@@ -5,7 +6,9 @@ import type { User } from "@/lib/generated/prisma/client";
 
 export type SafeUser = Omit<User, "password">;
 
-export async function getCurrentUser(): Promise<SafeUser | null> {
+// React.cache() deduplica chamadas dentro do mesmo request do servidor.
+// O layout e as pages podem chamar getCurrentUser() sem custo extra.
+export const getCurrentUser = cache(async (): Promise<SafeUser | null> => {
   const cookieStore = await cookies();
   const tokenCookie = cookieStore.get("accessToken");
 
@@ -42,7 +45,7 @@ export async function getCurrentUser(): Promise<SafeUser | null> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password, ...safeUser } = session.user;
   return safeUser;
-}
+});
 
 export async function requireUser(): Promise<SafeUser> {
   const user = await getCurrentUser();
