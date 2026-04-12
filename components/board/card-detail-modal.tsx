@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 // ─── InlineEdit: texto editavel com clique ─────────────────────────────
 function InlineEdit({
@@ -155,6 +156,14 @@ export function CardDetailModal({
   const [editingDescription, setEditingDescription] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+
+  // ConfirmDialog state — um unico estado para todas as confirmacoes
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    description: string;
+    label: string;
+    action: () => Promise<void>;
+  } | null>(null);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   // Due date state
@@ -374,12 +383,16 @@ export function CardDetailModal({
     finally { setAddingChecklist(false); }
   }
 
-  async function deleteChecklist(checklistId: string) {
-    if (!confirm("Excluir esta checklist e todos os seus itens? Esta acao nao pode ser desfeita.")) return;
-    try {
-      const res = await fetch(`/api/checklists/${checklistId}`, { method: "DELETE" });
-      if (res.ok) setChecklists((prev) => prev.filter((c) => c.id !== checklistId));
-    } catch { /* silently fail */ }
+  function deleteChecklist(checklistId: string) {
+    setConfirmAction({
+      title: "Excluir Checklist?",
+      description: "A exclusao de uma checklist e permanente e nao e possivel recupera-la. Todos os itens serao removidos.",
+      label: "Excluir checklist",
+      action: async () => {
+        const res = await fetch(`/api/checklists/${checklistId}`, { method: "DELETE" });
+        if (res.ok) setChecklists((prev) => prev.filter((c) => c.id !== checklistId));
+      },
+    });
   }
 
   async function addChecklistItem(checklistId: string) {
@@ -430,18 +443,22 @@ export function CardDetailModal({
     }
   }
 
-  async function deleteChecklistItem(checklistId: string, itemId: string) {
-    if (!confirm("Excluir este item da checklist?")) return;
-    try {
-      const res = await fetch(`/api/checklist-items/${itemId}`, { method: "DELETE" });
-      if (res.ok) {
-        setChecklists((prev) =>
-          prev.map((c) =>
-            c.id === checklistId ? { ...c, items: c.items.filter((i) => i.id !== itemId) } : c
-          )
-        );
-      }
-    } catch { /* silently fail */ }
+  function deleteChecklistItem(checklistId: string, itemId: string) {
+    setConfirmAction({
+      title: "Excluir item?",
+      description: "Este item sera removido permanentemente da checklist.",
+      label: "Excluir item",
+      action: async () => {
+        const res = await fetch(`/api/checklist-items/${itemId}`, { method: "DELETE" });
+        if (res.ok) {
+          setChecklists((prev) =>
+            prev.map((c) =>
+              c.id === checklistId ? { ...c, items: c.items.filter((i) => i.id !== itemId) } : c
+            )
+          );
+        }
+      },
+    });
   }
 
   async function setItemAssignee(checklistId: string, itemId: string, assigneeId: string | null) {
@@ -677,19 +694,21 @@ export function CardDetailModal({
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir este cartao? Esta acao nao pode ser desfeita.")) return;
-    try {
-      const res = await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
-      if (res.ok) {
-        onDelete(card.id);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(`Erro ao excluir: ${data.error || `Status ${res.status}`}`);
-      }
-    } catch (err) {
-      alert(`Erro de conexao ao excluir o cartao: ${err instanceof Error ? err.message : "desconhecido"}`);
-    }
+  function handleDelete() {
+    setConfirmAction({
+      title: "Excluir cartao?",
+      description: "O cartao e todo o seu conteudo (checklists, comentarios, anexos) serao excluidos permanentemente.",
+      label: "Excluir cartao",
+      action: async () => {
+        const res = await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
+        if (res.ok) {
+          onDelete(card.id);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Erro ${res.status}`);
+        }
+      },
+    });
   }
 
   // Formata data relativa simplificada
@@ -834,10 +853,8 @@ export function CardDetailModal({
                   </button>
                   <div className="border-t border-gray-100 my-1" />
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       setShowActionsMenu(false);
-                      // Pequeno delay para fechar o menu antes do confirm()
-                      await new Promise((r) => setTimeout(r, 50));
                       handleDelete();
                     }}
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -1779,6 +1796,17 @@ export function CardDetailModal({
           </div>
         </div>
       </div>
+
+      {/* ConfirmDialog reutilizavel para todas as exclusoes */}
+      <ConfirmDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+        onConfirm={confirmAction?.action ?? (async () => {})}
+        title={confirmAction?.title ?? ""}
+        description={confirmAction?.description ?? ""}
+        confirmLabel={confirmAction?.label ?? "Confirmar"}
+        variant="destructive"
+      />
     </div>
   );
 }

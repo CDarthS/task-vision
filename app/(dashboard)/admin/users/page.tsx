@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -198,10 +199,12 @@ export default function AdminUsersPage() {
   }
 
   // --- Deletar ---
-  async function handleDelete(user: UserItem) {
-    if (!confirm(`Tem certeza que deseja deletar "${user.name}"?`)) return;
+  const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
 
-    await fetch(`/api/users/${user.id}`, { method: "DELETE" });
+  async function executeDelete() {
+    if (!deleteTarget) return;
+    await fetch(`/api/users/${deleteTarget.id}`, { method: "DELETE" });
+    setDeleteTarget(null);
     fetchUsers();
   }
 
@@ -491,7 +494,7 @@ export default function AdminUsersPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(user)}
+                      onClick={() => setDeleteTarget(user)}
                       className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs cursor-pointer"
                     >
                       Deletar
@@ -503,6 +506,17 @@ export default function AdminUsersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* ConfirmDialog para deletar usuario */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onConfirm={executeDelete}
+        title={`Deletar ${deleteTarget?.name ?? "usuario"}?`}
+        description="Esta acao e permanente. O usuario e todos os seus dados serao removidos."
+        confirmLabel="Deletar usuario"
+        variant="destructive"
+      />
     </div>
   );
 }

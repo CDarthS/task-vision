@@ -686,6 +686,44 @@ taskvision/
 
 ---
 
+## 2026-04-13 — ConfirmDialog elegante (substituir confirm() nativo)
+
+### Problema reportado
+- O `confirm()` nativo do navegador era feio e generico
+- Usuario queria um modal elegante estilo Trello com fundo escuro e botao vermelho
+
+### Arquivo criado
+- `components/confirm-dialog.tsx` — componente reutilizavel com:
+  - Fundo dark (`.tv-modal`), titulo branco, descricao cinza
+  - Botao vermelho "Excluir" (variant destructive) + botao "Cancelar" ghost
+  - Estado de loading enquanto processa a acao
+  - Props: `open`, `onOpenChange`, `onConfirm`, `title`, `description`, `confirmLabel`, `variant`
+
+### Arquivos modificados
+
+**`components/board/card-detail-modal.tsx`:**
+- Adicionado estado `confirmAction` (titulo, descricao, label, action) — um unico estado para todas as confirmacoes
+- `deleteChecklist()` → abre ConfirmDialog "Excluir Checklist?"
+- `deleteChecklistItem()` → abre ConfirmDialog "Excluir item?"
+- `handleDelete()` (card) → abre ConfirmDialog "Excluir cartao?"
+- Removido `setTimeout(50ms)` que era workaround para o `confirm()` nativo
+- ConfirmDialog renderizado no final do componente
+
+**`app/(dashboard)/admin/users/page.tsx`:**
+- Estado `deleteTarget` para guardar o usuario a ser deletado
+- Botao "Deletar" agora abre ConfirmDialog "Deletar {nome}?"
+- ConfirmDialog renderizado no final da pagina
+
+### Erro encontrado e corrigido
+- Syntax error na linha 460: `catch` orfao sobrou da funcao original `deleteChecklistItem`
+- Corrigido: removido `catch` e fechado `setConfirmAction({...})` corretamente
+
+### Verificacao
+- `npm run build` — 0 erros
+- Zero usos de `confirm()` nativo restantes no codigo
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
