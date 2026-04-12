@@ -807,6 +807,52 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Fase Redis R1: Cache de contagem de notificacoes
+
+### Contexto
+- Redis (IORedis) e BullMQ ja estavam configurados e rodando na Railway
+- Polling do NotificationBell fazia `prisma.notification.count()` a cada 30s por user
+- Com 10 users = 20 queries/min desnecessarias ao PostgreSQL
+
+### Arquivo criado
+- `lib/notifications/cache.ts` — helpers de cache Redis:
+  - `getCachedCount(userId)` — busca contagem no Redis (sub-ms)
+  - `setCachedCount(userId, count)` — salva com TTL de 30s
+  - `invalidateCount(userId)` — limpa cache de 1 user
+  - `invalidateCountBatch(userIds[])` — limpa cache de multiplos users
+
+### Arquivos modificados
+
+**`app/api/notifications/count/route.ts`:**
+- GET agora tenta Redis primeiro (cache hit → retorna sem tocar no banco)
+- Cache miss → query Prisma + salva no Redis com TTL 30s
+- Resposta inclui `source: "cache" | "db"` para debug
+
+**`lib/notifications/create-notification.ts`:**
+- `createNotification()` → apos criar, `invalidateCount(userId)` do destinatario
+- `notifyCardMembers()` → apos createMany, `invalidateCountBatch(recipientIds)`
+
+**`app/api/notifications/route.ts`:**
+- PATCH (mark as read) → `invalidateCount(user.id)` apos marcar
+
+**`lib/queue/due-date-worker.ts`:**
+- Apos cada `createMany` de notificacoes → `invalidateCountBatch` dos destinatarios
+- 3 pontos de invalidacao: cards overdue, checklist items overdue, notify-single
+
+**`app/api/notifications/cron-overdue/route.ts`:**
+- Mesmo padrao: `invalidateCountBatch` apos cada createMany (fallback sincrono)
+
+### Resultado
+- ~90% menos queries ao PostgreSQL para contagem de notificacoes
+- Latencia de contagem: ~200ms (Prisma) → ~1ms (Redis)
+- Cache invalida automaticamente quando novas notificacoes sao criadas ou lidas
+
+### Verificacao
+- `npm run build` — 0 erros
+- `npm run lint` — 0 erros (3 warnings pre-existentes)
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

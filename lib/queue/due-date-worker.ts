@@ -19,6 +19,7 @@ import {
   NotifySingleCardJobData,
 } from "./due-date-queue";
 import { prisma } from "@/lib/prisma";
+import { invalidateCountBatch } from "@/lib/notifications/cache";
 
 // ─── Processadores ──────────────────────────────────────────
 
@@ -104,6 +105,8 @@ async function processScanDueDates(data: ScanDueDatesJobData) {
       data: allNewNotifications,
     });
     totalCreated += result.count;
+    // Invalida cache de contagem dos destinatarios
+    invalidateCountBatch(allNewNotifications.map((n) => n.userId));
   }
 
   // ── PARTE 2: Itens de Checklist em atraso ─────────────────
@@ -194,6 +197,8 @@ async function processScanDueDates(data: ScanDueDatesJobData) {
       data: newItemNotifications,
     });
     totalCreated += result.count;
+    // Invalida cache de contagem dos destinatarios
+    invalidateCountBatch(newItemNotifications.map((n) => n.userId));
   }
 
   console.log(
@@ -263,6 +268,8 @@ async function processNotifySingleCard(data: NotifySingleCardJobData) {
 
   if (newNotifications.length > 0) {
     await prisma.notification.createMany({ data: newNotifications });
+    // Invalida cache de contagem dos destinatarios
+    invalidateCountBatch(newNotifications.map((n) => n.userId));
   }
 
   console.log(

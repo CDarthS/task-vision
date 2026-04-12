@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { invalidateCount } from "@/lib/notifications/cache";
 
 // GET /api/notifications — listar notificações do usuário logado
 export async function GET(request: NextRequest) {
@@ -55,6 +56,7 @@ export async function PATCH(request: NextRequest) {
         where: { userId: user.id, isRead: false },
         data: { isRead: true },
       });
+      invalidateCount(user.id);
       return NextResponse.json({ success: true });
     }
 
@@ -66,6 +68,7 @@ export async function PATCH(request: NextRequest) {
         },
         data: { isRead: true },
       });
+      invalidateCount(user.id);
       return NextResponse.json({ success: true });
     }
 

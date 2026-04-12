@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { invalidateCountBatch } from "@/lib/notifications/cache";
 
 // GET /api/notifications/cron-overdue
 // "Cron Virtual" — verifica cards E itens de checklist em atraso.
@@ -88,6 +89,7 @@ export async function GET() {
         data: allNewNotifications,
       });
       totalCreated += result.count;
+      invalidateCountBatch(allNewNotifications.map((n) => n.userId));
     }
 
     // ── PARTE 2: Itens de Checklist em atraso ───────────────────────────────
@@ -175,6 +177,7 @@ export async function GET() {
         data: newItemNotifications,
       });
       totalCreated += result.count;
+      invalidateCountBatch(newItemNotifications.map((n) => n.userId));
     }
 
     return NextResponse.json({

@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { NotificationType } from "@/lib/generated/prisma/enums";
+import { invalidateCount, invalidateCountBatch } from "./cache";
 
 export interface CreateNotificationInput {
   userId: string;       // Quem recebe
@@ -37,6 +38,9 @@ export async function createNotification(input: CreateNotificationInput) {
         data: (input.data || {}) as object,
       },
     });
+
+    // Invalida cache de contagem do destinatario
+    invalidateCount(input.userId);
 
     return notification;
   } catch (error) {
@@ -102,6 +106,9 @@ export async function notifyCardMembers(params: {
         data: (data || {}) as object,
       })),
     });
+
+    // Invalida cache de contagem de todos os destinatarios
+    invalidateCountBatch(recipientIds);
 
     return notifications;
   } catch (error) {
