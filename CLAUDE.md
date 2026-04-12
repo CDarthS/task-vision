@@ -724,6 +724,22 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Menu de Acoes: Etapa 1 — Botao "Sair" funcional
+
+### Mudanca
+- Botao "Sair" no menu de acoes (tres pontinhos) do card-detail-modal agora funciona
+- Antes: `disabled`, `cursor-not-allowed`, `text-gray-400` — nao clicavel
+- Depois: `onClick` → fecha menu + chama `onClose()` (fecha o modal)
+- Estilo atualizado: `text-gray-700 hover:bg-gray-50 cursor-pointer`
+
+### Arquivo modificado
+- `components/board/card-detail-modal.tsx` — linhas 790-798: removido `disabled`, adicionado `onClick`
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
