@@ -17,6 +17,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import type { NotificationType } from "@/lib/generated/prisma/enums";
 import { invalidateCount, invalidateCountBatch } from "@/lib/notifications/cache";
+import { publishNotification, publishNotificationBatch } from "@/lib/notifications/realtime";
 
 // ─── Processadores ──────────────────────────────────────────
 
@@ -39,6 +40,12 @@ async function processNotifySingle(data: NotifySingleJobData) {
   });
 
   invalidateCount(data.userId);
+
+  // Pub/Sub: notifica o browser do destinatario em tempo real
+  publishNotification(data.userId, {
+    type: data.type,
+    cardTitle: data.data?.cardTitle,
+  });
 
   return { created: 1 };
 }
@@ -84,6 +91,12 @@ async function processNotifyCardMembers(data: NotifyCardMembersJobData) {
 
   // Invalida cache de todos os destinatarios
   invalidateCountBatch(recipientIds);
+
+  // Pub/Sub: notifica os browsers de todos os destinatarios em tempo real
+  publishNotificationBatch(recipientIds, {
+    type: data.type,
+    cardTitle: data.data?.cardTitle,
+  });
 
   return { created: result.count, recipients: recipientIds.length };
 }

@@ -899,6 +899,62 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Fase Redis R3: Pub/Sub + SSE para notificacoes em tempo real
+
+### Contexto
+- Antes: NotificationBell dependia 100% de polling (30s) para atualizar contagem
+- Mesmo com cache Redis (R1), o usuario so via notificacoes 30s depois
+- Agora: Redis Pub/Sub empurra eventos em tempo real via Server-Sent Events (SSE)
+
+### Arquivos criados
+
+**`lib/notifications/realtime.ts`:**
+- `publishNotification(userId, payload)` — publica no canal `tv:notify:{userId}`
+- `publishNotificationBatch(userIds[], payload)` — publica para multiplos users via pipeline
+- `createUserSubscriber(userId)` — cria conexao IORedis dedicada para subscriber
+- Publisher: singleton global (reutiliza conexao)
+- Subscriber: 1 conexao por stream SSE ativo (criado e destruido com o EventSource)
+
+**`app/api/notifications/stream/route.ts`:**
+- Endpoint SSE (Server-Sent Events) que mantém conexao aberta com o browser
+- Subscreve ao canal Redis `tv:notify:{userId}` do usuario logado
+- Heartbeat a cada 30s para manter conexao viva (previne timeout de proxy)
+- Cleanup automatico: unsubscribe + quit quando o cliente desconecta
+- Se Redis indisponivel: retorna 503 (fallback para polling)
+
+### Arquivos modificados
+
+**`lib/queue/notification-worker.ts`:**
+- `processNotifySingle`: apos criar → publica no canal do destinatario
+- `processNotifyCardMembers`: apos createMany → `publishNotificationBatch` para todos
+
+**`lib/queue/due-date-worker.ts`:**
+- Apos cada createMany de notificacoes overdue → `publishNotificationBatch`
+- 3 pontos de publish: cards overdue, checklist items overdue, notify-single
+
+**`components/notification-bell.tsx`:**
+- Abre `EventSource("/api/notifications/stream")` na montagem
+- Quando recebe evento SSE → chama `fetchCount()` para atualizar badge
+- SSE reconecta automaticamente em caso de erro
+- Fallback polling (30s) mantido em paralelo
+- Due date scan: continua a cada ~2min via BullMQ
+
+### Fluxo completo de tempo real
+```
+1. Admin move um card
+2. PATCH /api/cards/:id → enfileira notificacao no BullMQ (R2)
+3. Worker processa job → cria notificacao no banco + invalida cache Redis (R1)
+4. Worker publica no canal tv:notify:{userId} via Pub/Sub (R3)
+5. SSE endpoint recebe mensagem → empurra para o browser do destinatario
+6. NotificationBell recebe evento → fetchCount() → badge atualiza instantaneamente
+```
+
+### Verificacao
+- `npm run build` — 0 erros
+- Rota `/api/notifications/stream` aparece no build
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

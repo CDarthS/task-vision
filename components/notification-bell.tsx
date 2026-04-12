@@ -95,50 +95,78 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Polling: busca contagem de não lidas a cada 30s
-  // + dispara scan de due dates via BullMQ a cada ~2min (4 ciclos de 30s)
+  // Busca contagem via API (usado no SSE e no fallback polling)
   const cronCounter = useRef(0);
+  const sseConnected = useRef(false);
 
   const fetchCount = useCallback(async () => {
     try {
-      // Scan via BullMQ: a cada 4 ciclos (~2min), enfileira verificacao de cards em atraso
-      cronCounter.current++;
-      if (cronCounter.current >= 4) {
-        cronCounter.current = 0;
-        // Usa a nova fila BullMQ (assincrona) com fallback para o endpoint sincrono legado
-        fetch("/api/queue/due-date-scan")
-          .then((res) => {
-            if (!res.ok) return fetch("/api/notifications/cron-overdue");
-          })
-          .catch(() => {
-            // Fallback silencioso para o endpoint legado se BullMQ falhar
-            fetch("/api/notifications/cron-overdue").catch(() => {});
-          });
-      }
-
       const res = await fetch("/api/notifications/count");
       if (res.ok) {
         const data = await res.json();
         setUnreadCount(data.count);
       }
-    } catch {
-      // Silencioso
-    }
+    } catch { /* silencioso */ }
+  }, []);
+
+  // Dispara scan de due dates via BullMQ (~2min)
+  const triggerDueDateScan = useCallback(() => {
+    fetch("/api/queue/due-date-scan")
+      .then((res) => { if (!res.ok) return fetch("/api/notifications/cron-overdue"); })
+      .catch(() => { fetch("/api/notifications/cron-overdue").catch(() => {}); });
   }, []);
 
   useEffect(() => {
-    // Dispara scan de due dates imediatamente na montagem (via BullMQ)
-    fetch("/api/queue/due-date-scan")
-      .then((res) => {
-        if (!res.ok) return fetch("/api/notifications/cron-overdue");
-      })
-      .catch(() => {
-        fetch("/api/notifications/cron-overdue").catch(() => {});
-      });
+    // Busca contagem e scan de due dates na montagem
     fetchCount();
-    const interval = setInterval(fetchCount, 30000);
-    return () => clearInterval(interval);
-  }, [fetchCount]);
+    triggerDueDateScan();
+
+    // ─── SSE: tempo real via EventSource ────────────────────
+    let eventSource: EventSource | null = null;
+
+    try {
+      eventSource = new EventSource("/api/notifications/stream");
+
+      eventSource.onopen = () => {
+        sseConnected.current = true;
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === "connected") return; // handshake
+          // Notificacao recebida em tempo real — atualiza contagem
+          fetchCount();
+        } catch { /* parse error, ignora */ }
+      };
+
+      eventSource.onerror = () => {
+        sseConnected.current = false;
+        // SSE vai tentar reconectar automaticamente
+      };
+    } catch {
+      sseConnected.current = false;
+    }
+
+    // ─── Fallback polling: contagem a cada 30s ─────────────
+    const interval = setInterval(() => {
+      fetchCount();
+
+      // Due date scan a cada ~2min (4 ciclos)
+      cronCounter.current++;
+      if (cronCounter.current >= 4) {
+        cronCounter.current = 0;
+        triggerDueDateScan();
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [fetchCount, triggerDueDateScan]);
 
   // Busca notificações quando abre o dropdown
   const fetchNotifications = async () => {

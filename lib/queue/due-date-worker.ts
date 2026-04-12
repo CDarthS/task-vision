@@ -20,6 +20,7 @@ import {
 } from "./due-date-queue";
 import { prisma } from "@/lib/prisma";
 import { invalidateCountBatch } from "@/lib/notifications/cache";
+import { publishNotificationBatch } from "@/lib/notifications/realtime";
 
 // ─── Processadores ──────────────────────────────────────────
 
@@ -105,8 +106,9 @@ async function processScanDueDates(data: ScanDueDatesJobData) {
       data: allNewNotifications,
     });
     totalCreated += result.count;
-    // Invalida cache de contagem dos destinatarios
-    invalidateCountBatch(allNewNotifications.map((n) => n.userId));
+    const userIds = allNewNotifications.map((n) => n.userId);
+    invalidateCountBatch(userIds);
+    publishNotificationBatch(userIds, { type: "DUE_DATE_OVERDUE" });
   }
 
   // ── PARTE 2: Itens de Checklist em atraso ─────────────────
@@ -197,8 +199,9 @@ async function processScanDueDates(data: ScanDueDatesJobData) {
       data: newItemNotifications,
     });
     totalCreated += result.count;
-    // Invalida cache de contagem dos destinatarios
-    invalidateCountBatch(newItemNotifications.map((n) => n.userId));
+    const itemUserIds = newItemNotifications.map((n) => n.userId);
+    invalidateCountBatch(itemUserIds);
+    publishNotificationBatch(itemUserIds, { type: "CHECKLIST_ITEM_OVERDUE" });
   }
 
   console.log(
@@ -268,8 +271,12 @@ async function processNotifySingleCard(data: NotifySingleCardJobData) {
 
   if (newNotifications.length > 0) {
     await prisma.notification.createMany({ data: newNotifications });
-    // Invalida cache de contagem dos destinatarios
-    invalidateCountBatch(newNotifications.map((n) => n.userId));
+    const singleUserIds = newNotifications.map((n) => n.userId);
+    invalidateCountBatch(singleUserIds);
+    publishNotificationBatch(singleUserIds, {
+      type: data.reason === "overdue" ? "DUE_DATE_OVERDUE" : "DUE_DATE_SOON",
+      cardTitle: card.title,
+    });
   }
 
   console.log(
