@@ -23,6 +23,7 @@ import type { CardData, ListData, BoardData } from "@/lib/types";
 interface BoardClientProps {
   board: BoardData;
   userName: string;
+  userId: string;
   initialCardId?: string;
 }
 
@@ -40,7 +41,7 @@ function calcPosition(items: CardData[], toIndex: number, movedId: string): numb
   return ((prev.position ?? 0) + (next.position ?? 0)) / 2;
 }
 
-export function BoardClient({ board, userName, initialCardId }: BoardClientProps) {
+export function BoardClient({ board, userName, userId, initialCardId }: BoardClientProps) {
   const router = useRouter();
   const [lists, setLists] = useState<ListData[]>(board.lists);
   const [addingList, setAddingList] = useState(false);
@@ -377,6 +378,7 @@ export function BoardClient({ board, userName, initialCardId }: BoardClientProps
           card={selectedCard}
           listTitle={selectedListTitle}
           userName={userName}
+          userId={userId}
           boardId={board.id}
           workspaceId={board.workspaceId}
           onClose={() => {

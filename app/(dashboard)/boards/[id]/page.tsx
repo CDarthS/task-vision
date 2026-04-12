@@ -75,6 +75,7 @@ export default async function BoardPage({
     <BoardClient
       board={serializedBoard}
       userName={user.name}
+      userId={user.id}
       initialCardId={cardId}
     />
   );

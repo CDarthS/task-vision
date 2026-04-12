@@ -740,6 +740,32 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Correcao: Botao "Sair" remove membro do cartao (nao fecha modal)
+
+### Problema reportado
+- O botao "Sair" no menu de acoes estava fechando o modal (comportamento errado)
+- O correto (estilo Trello): "Sair" = remover a si mesmo como membro do cartao
+
+### Mudancas
+
+**`app/(dashboard)/boards/[id]/page.tsx`:**
+- Adicionado `userId={user.id}` no prop do BoardClient
+
+**`components/board/board-client.tsx`:**
+- Interface `BoardClientProps` recebe `userId: string`
+- Passa `userId` para o `CardDetailModal`
+
+**`components/board/card-detail-modal.tsx`:**
+- Interface `CardDetailModalProps` recebe `userId: string`
+- Botao "Sair": chama `toggleMember(userId)` em vez de `onClose()`
+- Se o usuario nao e membro do cartao, botao fica desabilitado (cinza, cursor-not-allowed)
+- Se e membro, botao fica ativo e ao clicar remove o usuario da lista de membros
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

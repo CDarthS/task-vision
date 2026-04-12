@@ -118,6 +118,7 @@ interface CardDetailModalProps {
   card: CardData;
   listTitle: string;
   userName: string;
+  userId: string;
   boardId: string;
   workspaceId: string;
   onClose: () => void;
@@ -144,6 +145,7 @@ export function CardDetailModal({
   card,
   listTitle,
   userName,
+  userId,
   boardId,
   workspaceId,
   onClose,
@@ -790,9 +792,14 @@ export function CardDetailModal({
                   <button
                     onClick={() => {
                       setShowActionsMenu(false);
-                      onClose();
+                      toggleMember(userId);
                     }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                    disabled={!cardMembers.some((m) => m.id === userId)}
+                    className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                      cardMembers.some((m) => m.id === userId)
+                        ? "text-gray-700 hover:bg-gray-50 cursor-pointer"
+                        : "text-gray-400 cursor-not-allowed"
+                    }`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
