@@ -1578,8 +1578,8 @@ export function CardDetailModal({
                   })
                 );
 
-                // Atividades: filtrar COMMENT_ADDED (já aparece como comentário)
-                // Só mostra atividades de sistema quando showDetails = true
+                // Atividades de sistema (inclui CARD_CREATED com o criador real)
+                // Só mostra quando showDetails = true
                 if (showDetails) {
                   activities
                     .filter((a) => a.type !== "COMMENT_ADDED")
@@ -1594,16 +1594,6 @@ export function CardDetailModal({
                       })
                     );
                 }
-
-                // Sempre inclui o "card criado" como último item
-                items.push({
-                  id: "card-created",
-                  kind: "activity",
-                  createdAt: card.createdAt,
-                  user: null,
-                  type: "CARD_CREATED",
-                  data: { listTitle },
-                });
 
                 // Ordena por data desc
                 items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

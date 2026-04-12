@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { logActivity } from "@/lib/activity";
 
 // POST /api/cards — criar card dentro de uma lista
 export async function POST(request: NextRequest) {
@@ -70,7 +71,16 @@ export async function POST(request: NextRequest) {
         title: title.trim(),
         listId,
         position,
+        creatorId: user.id,
       },
+    });
+
+    // Registra atividade CARD_CREATED com o criador real
+    logActivity({
+      cardId: card.id,
+      userId: user.id,
+      type: "CARD_CREATED",
+      data: { listTitle: list.title },
     });
 
     return NextResponse.json({ card }, { status: 201 });
