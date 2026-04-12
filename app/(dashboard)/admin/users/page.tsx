@@ -272,6 +272,10 @@ export default function AdminUsersPage() {
                   onChange={(e) => setNewUsername(e.target.value)}
                   className="bg-white/5 border-white/10 text-white"
                   placeholder="usuario123"
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
                 />
               </div>
               <div className="space-y-2">
@@ -363,6 +367,10 @@ export default function AdminUsersPage() {
                 onChange={(e) => setEditUsername(e.target.value)}
                 className="bg-white/5 border-white/10 text-white"
                 placeholder="usuario123"
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
               />
             </div>
             <div className="space-y-2">
