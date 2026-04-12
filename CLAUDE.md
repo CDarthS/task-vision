@@ -1515,4 +1515,5 @@ lib/
 app/api/queue/
 ├── health/route.ts                   # GET - Health check publico (Redis + filas + worker)
 └── due-date-scan/route.ts            # GET - Enfileira scan assincrono (auth required)
-```
+```U p d a t e d   w o r k s p a c e   r o l e   d i s p l a y   t o   s h o w   ' A d m i n '   f o r   O W N E R   r o l e  
+ 

@@ -22,7 +22,13 @@ interface WorkspaceMembersProps {
 
 export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId }: WorkspaceMembersProps) {
   const router = useRouter();
-  const [members, setMembers] = useState(initialMembers);
+  
+  const sortMembers = (mList: MemberItem[]) => {
+    const roleOrder: Record<string, number> = { OWNER: 0, ADMIN: 1, MEMBER: 2 };
+    return [...mList].sort((a, b) => (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99));
+  };
+  
+  const [members, setMembers] = useState(() => sortMembers(initialMembers));
   const [showAddForm, setShowAddForm] = useState(false);
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
@@ -50,7 +56,7 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
         return;
       }
 
-      setMembers((prev) => [...prev, data.member]);
+      setMembers((prev) => sortMembers([...prev, data.member]));
       setEmail("");
       setShowAddForm(false);
       router.refresh();

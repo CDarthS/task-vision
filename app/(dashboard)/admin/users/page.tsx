@@ -79,7 +79,18 @@ export default function AdminUsersPage() {
         return;
       }
       const data = await res.json();
-      setUsers(data.users || []);
+      
+      const roleOrder: Record<string, number> = {
+        ADMIN: 0,
+        PROJECT_OWNER: 1,
+        MEMBER: 2,
+      };
+      
+      const sortedUsers = (data.users || []).sort((a: UserItem, b: UserItem) => {
+        return (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99);
+      });
+      
+      setUsers(sortedUsers);
     } catch {
       // ignore
     } finally {
