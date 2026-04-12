@@ -636,6 +636,41 @@ taskvision/
 
 ---
 
+## 2026-04-12 — Edicao inline de titulos de Checklist e Itens
+
+### Problema reportado
+- Titulos de checklists e nomes dos itens eram texto estatico sem possibilidade de edicao
+- Usuario precisava deletar e recriar para corrigir um nome
+
+### Correcoes em `components/board/card-detail-modal.tsx`
+
+**Novo componente `InlineEdit` (interno ao modal):**
+- Renderiza como `<span>` clicavel por padrao
+- Ao clicar: transforma em `<input>` com foco automatico e texto selecionado
+- Enter: salva via callback async `onSave`
+- Escape: cancela e reverte ao valor original
+- Blur (clicar fora): salva automaticamente
+- Estilo: borda violet ao editar, hover cinza quando estatico
+- Feedback de loading: input desabilitado enquanto salva
+- Rollback automatico em caso de erro na API
+
+**Titulo da checklist:**
+- `<h3>{checklist.title}</h3>` substituido por `<InlineEdit>` com `PATCH /api/checklists/:id`
+- Atualiza estado local `setChecklists()` apos salvar
+
+**Titulo dos itens:**
+- `<span>{item.title}</span>` substituido por `<InlineEdit>` com `PATCH /api/checklist-items/:id`
+- Atualiza estado local `setChecklists()` (items dentro da checklist) apos salvar
+
+### APIs utilizadas (ja existiam)
+- `PATCH /api/checklists/[id]` — aceita `{ title }` para renomear checklist
+- `PATCH /api/checklist-items/[id]` — aceita `{ title }` para renomear item
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

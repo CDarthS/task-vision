@@ -1,6 +1,77 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ─── InlineEdit: texto editavel com clique ─────────────────────────────
+function InlineEdit({
+  value,
+  onSave,
+  className = "",
+}: {
+  value: string;
+  onSave: (newValue: string) => Promise<void>;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value);
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setText(value); }, [value]);
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const save = useCallback(async () => {
+    const trimmed = text.trim();
+    if (!trimmed || trimmed === value) {
+      setText(value);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(trimmed);
+    } catch {
+      setText(value);
+    } finally {
+      setSaving(false);
+      setEditing(false);
+    }
+  }, [text, value, onSave]);
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); save(); }
+          if (e.key === "Escape") { setText(value); setEditing(false); }
+        }}
+        disabled={saving}
+        className={`flex-1 bg-white border border-violet-300 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-violet-400/50 ${className}`}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => setEditing(true)}
+      title="Clique para editar"
+      className={`flex-1 cursor-pointer hover:bg-gray-100 rounded px-2 py-0.5 -mx-2 -my-0.5 transition-colors ${className}`}
+    >
+      {value}
+    </span>
+  );
+}
+
+// ─── Interfaces ─────────────────────────────────────────────────────────
 
 interface CommentData {
   id: string;
@@ -1211,15 +1282,33 @@ export function CardDetailModal({
               return (
                 <div key={checklist.id} className="mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <svg className="w-5 h-5 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                       </svg>
-                      <h3 className="text-base font-semibold text-gray-800">{checklist.title}</h3>
+                      <InlineEdit
+                        value={checklist.title}
+                        onSave={async (newTitle) => {
+                          const res = await fetch(`/api/checklists/${checklist.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ title: newTitle }),
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            setChecklists((prev) =>
+                              prev.map((cl) =>
+                                cl.id === checklist.id ? { ...cl, title: data.checklist.title } : cl
+                              )
+                            );
+                          }
+                        }}
+                        className="text-base font-semibold text-gray-800"
+                      />
                     </div>
                     <button
                       onClick={() => deleteChecklist(checklist.id)}
-                      className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                      className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer shrink-0 ml-2"
                     >
                       Excluir
                     </button>
@@ -1273,12 +1362,35 @@ export function CardDetailModal({
                               )}
                             </button>
 
-                            {/* Texto */}
-                            <span className={`flex-1 text-sm ${
-                              item.isCompleted ? "text-gray-400 line-through" : "text-gray-700"
-                            }`}>
-                              {item.title}
-                            </span>
+                            {/* Texto — editavel inline */}
+                            <InlineEdit
+                              value={item.title}
+                              onSave={async (newTitle) => {
+                                const res = await fetch(`/api/checklist-items/${item.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ title: newTitle }),
+                                });
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  setChecklists((prev) =>
+                                    prev.map((cl) =>
+                                      cl.id === checklist.id
+                                        ? {
+                                            ...cl,
+                                            items: cl.items.map((it) =>
+                                              it.id === item.id ? { ...it, title: data.item.title } : it
+                                            ),
+                                          }
+                                        : cl
+                                    )
+                                  );
+                                }
+                              }}
+                              className={`text-sm ${
+                                item.isCompleted ? "text-gray-400 line-through" : "text-gray-700"
+                              }`}
+                            />
 
                             {/* Assignee mini-badge */}
                             {item.assignee && (
