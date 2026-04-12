@@ -375,6 +375,7 @@ export function CardDetailModal({
   }
 
   async function deleteChecklist(checklistId: string) {
+    if (!confirm("Excluir esta checklist e todos os seus itens? Esta acao nao pode ser desfeita.")) return;
     try {
       const res = await fetch(`/api/checklists/${checklistId}`, { method: "DELETE" });
       if (res.ok) setChecklists((prev) => prev.filter((c) => c.id !== checklistId));
@@ -430,6 +431,7 @@ export function CardDetailModal({
   }
 
   async function deleteChecklistItem(checklistId: string, itemId: string) {
+    if (!confirm("Excluir este item da checklist?")) return;
     try {
       const res = await fetch(`/api/checklist-items/${itemId}`, { method: "DELETE" });
       if (res.ok) {

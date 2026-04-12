@@ -671,6 +671,21 @@ taskvision/
 
 ---
 
+## 2026-04-12 — Confirmacao antes de excluir Checklist e Itens
+
+### Problema reportado
+- Excluir checklist ou item era instantaneo sem aviso, causando exclusoes acidentais
+
+### Correcoes em `components/board/card-detail-modal.tsx`
+- `deleteChecklist()`: adicionado `confirm("Excluir esta checklist e todos os seus itens?")` antes do fetch
+- `deleteChecklistItem()`: adicionado `confirm("Excluir este item da checklist?")` antes do fetch
+- Se usuario cancelar o confirm, a exclusao nao acontece
+
+### Verificacao
+- `npm run build` — 0 erros
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.
