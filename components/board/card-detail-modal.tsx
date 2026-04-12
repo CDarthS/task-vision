@@ -1314,7 +1314,7 @@ export function CardDetailModal({
                                     activeItemDatePicker === item.id ? null : item.id
                                   )
                                 }
-                                className={`text-[10px] font-medium px-1.5 py-0.5 rounded cursor-pointer ${
+                                className={`text-xs font-medium px-1.5 py-0.5 rounded cursor-pointer ${
                                   item.isCompleted
                                     ? "bg-green-100 text-green-700"
                                     : itemIsOverdue
