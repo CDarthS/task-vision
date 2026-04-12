@@ -1344,4 +1344,27 @@ tirando o peso das API Routes sincronas.
 
 ### Verificacao
 - `npm run build` — 0 erros, novas rotas compilam (/api/queue/health, /api/queue/due-date-scan)
-- Teste de conexao em producao pendente (proximo passo: git push + verificar health endpoint)
+- Deploy Railway: sucesso automatico apos `git push`
+- **Health check em producao** (`GET /api/queue/health`):
+  - Redis connected: true
+  - Ping: 2-3ms
+  - Redis version: 8.2.1
+  - Worker status: running (apos primeiro job)
+- **Scan assincrono em producao** (`GET /api/queue/due-date-scan`):
+  - Resposta: `{ queued: true, jobId: "scan-1776026520697" }`
+  - Job processado pelo worker com sucesso
+  - Contador de jobs completed aumentou de 1 para 3 apos testes
+- **Middleware fix**: adicionado `/api/queue/health` aos PUBLIC_PATHS para acesso sem auth (commit separado)
+
+### Estrutura de Arquivos Redis/BullMQ
+```
+lib/
+├── redis.ts                          # Singleton IORedis
+├── queue/
+│   ├── connection.ts                 # Config compartilhada BullMQ (prefix, conexao)
+│   ├── due-date-queue.ts             # Definicao da fila + helpers de enqueue
+│   └── due-date-worker.ts            # Worker que processa jobs (scan + notify)
+app/api/queue/
+├── health/route.ts                   # GET - Health check publico (Redis + filas + worker)
+└── due-date-scan/route.ts            # GET - Enfileira scan assincrono (auth required)
+```
