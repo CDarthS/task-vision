@@ -214,6 +214,28 @@ export function CardDetailModal({
   const [activities, setActivities] = useState<ActivityData[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
 
+  // Copy state
+  const [showCopyPopover, setShowCopyPopover] = useState(false);
+  const [copyTitle, setCopyTitle] = useState(card.title);
+  const [copyKeepChecklists, setCopyKeepChecklists] = useState(true);
+  const [copyKeepMembers, setCopyKeepMembers] = useState(true);
+  const [copyBoards, setCopyBoards] = useState<{ id: string; title: string }[]>([]);
+  const [copyLists, setCopyLists] = useState<{ id: string; title: string }[]>([]);
+  const [copySelectedBoardId, setCopySelectedBoardId] = useState<string>(boardId);
+  const [copySelectedListId, setCopySelectedListId] = useState<string>(card.listId);
+  const [copying, setCopying] = useState(false);
+  const copyPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Move state
+  const [showMovePopover, setShowMovePopover] = useState(false);
+  const [moveBoards, setMoveBoards] = useState<{ id: string; title: string }[]>([]);
+  const [moveLists, setMoveLists] = useState<{ id: string; title: string; cards: { id: string }[] }[]>([]);
+  const [moveSelectedBoardId, setMoveSelectedBoardId] = useState<string>(boardId);
+  const [moveSelectedListId, setMoveSelectedListId] = useState<string>(card.listId);
+  const [moveSelectedPosition, setMoveSelectedPosition] = useState<number>(1);
+  const [moving, setMoving] = useState(false);
+  const movePopoverRef = useRef<HTMLDivElement>(null);
+
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const memberPickerRef = useRef<HTMLDivElement>(null);
@@ -230,8 +252,14 @@ export function CardDetailModal({
       if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
         setShowAddMenu(false);
       }
+      if (copyPopoverRef.current && !copyPopoverRef.current.contains(event.target as Node)) {
+        setShowCopyPopover(false);
+      }
+      if (movePopoverRef.current && !movePopoverRef.current.contains(event.target as Node)) {
+        setShowMovePopover(false);
+      }
     }
-    if (showMemberPicker || showActionsMenu || showAddMenu) {
+    if (showMemberPicker || showActionsMenu || showAddMenu || showCopyPopover || showMovePopover) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
@@ -726,6 +754,183 @@ export function CardDetailModal({
     });
   }
 
+  async function openCopyPopover() {
+    setShowActionsMenu(false);
+    setShowCopyPopover(true);
+    setCopyTitle(card.title);
+    setCopySelectedBoardId(boardId);
+    setCopySelectedListId(card.listId);
+    setCopyKeepChecklists(true);
+    setCopyKeepMembers(true);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCopyBoards(data.workspace.boards || []);
+      }
+    } catch { /* silently fail */ }
+  }
+
+  useEffect(() => {
+    async function fetchLists() {
+      if (!copySelectedBoardId) return;
+      try {
+        const res = await fetch(`/api/boards/${copySelectedBoardId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const fetchedLists = data.board?.lists || [];
+          setCopyLists(fetchedLists);
+          if (fetchedLists.length > 0 && copySelectedBoardId !== boardId) {
+            setCopySelectedListId(fetchedLists[0].id);
+          } else if (copySelectedBoardId === boardId) {
+            setCopySelectedListId(card.listId);
+          }
+        }
+      } catch { /* silently fail */ }
+    }
+    if (showCopyPopover) fetchLists();
+  }, [copySelectedBoardId, showCopyPopover, boardId, card.listId]);
+
+  async function submitCopy() {
+    if (!copyTitle.trim() || !copySelectedListId || !copySelectedBoardId || copying) return;
+    setCopying(true);
+    try {
+      const res = await fetch(`/api/cards/${card.id}/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newTitle: copyTitle,
+          targetListId: copySelectedListId,
+          targetBoardId: copySelectedBoardId,
+          keepChecklists: copyKeepChecklists,
+          keepMembers: copyKeepMembers,
+        }),
+      });
+      if (res.ok) {
+        setShowCopyPopover(false);
+        onClose(); // Close modal nicely after copying
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCopying(false);
+    }
+  }
+
+  // ─── Move Card ──────────────────────────────────────────
+  async function openMovePopover() {
+    setShowActionsMenu(false);
+    setShowMovePopover(true);
+    setMoveSelectedBoardId(boardId);
+    setMoveSelectedListId(card.listId);
+    setMoveSelectedPosition(1);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMoveBoards(data.workspace.boards || []);
+      }
+    } catch { /* silently fail */ }
+  }
+
+  useEffect(() => {
+    async function fetchMoveLists() {
+      if (!moveSelectedBoardId) return;
+      try {
+        const res = await fetch(`/api/boards/${moveSelectedBoardId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const fetchedLists = (data.board?.lists || []).map((l: { id: string; title: string; cards: { id: string }[] }) => ({
+            id: l.id,
+            title: l.title,
+            cards: l.cards || [],
+          }));
+          setMoveLists(fetchedLists);
+          if (moveSelectedBoardId !== boardId && fetchedLists.length > 0) {
+            setMoveSelectedListId(fetchedLists[0].id);
+            setMoveSelectedPosition(1);
+          } else {
+            setMoveSelectedListId(card.listId);
+            // Encontra a posição atual do card na lista
+            const currentList = fetchedLists.find((l: { id: string }) => l.id === card.listId);
+            if (currentList) {
+              const idx = currentList.cards.findIndex((c: { id: string }) => c.id === card.id);
+              setMoveSelectedPosition(idx >= 0 ? idx + 1 : currentList.cards.length + 1);
+            }
+          }
+        }
+      } catch { /* silently fail */ }
+    }
+    if (showMovePopover) fetchMoveLists();
+  }, [moveSelectedBoardId, showMovePopover, boardId, card.listId, card.id]);
+
+  // Recalcular posição quando a lista de destino muda
+  useEffect(() => {
+    if (!showMovePopover) return;
+    const targetList = moveLists.find(l => l.id === moveSelectedListId);
+    if (!targetList) return;
+    if (moveSelectedListId === card.listId && moveSelectedBoardId === boardId) {
+      const idx = targetList.cards.findIndex(c => c.id === card.id);
+      setMoveSelectedPosition(idx >= 0 ? idx + 1 : 1);
+    } else {
+      setMoveSelectedPosition(targetList.cards.length + 1);
+    }
+  }, [moveSelectedListId, moveLists, showMovePopover, card.listId, card.id, boardId, moveSelectedBoardId]);
+
+  function getMovePositionOptions(): number[] {
+    const targetList = moveLists.find(l => l.id === moveSelectedListId);
+    if (!targetList) return [1];
+    const isCurrentList = moveSelectedListId === card.listId && moveSelectedBoardId === boardId;
+    const count = isCurrentList ? targetList.cards.length : targetList.cards.length + 1;
+    return Array.from({ length: Math.max(count, 1) }, (_, i) => i + 1);
+  }
+
+  async function submitMove() {
+    if (!moveSelectedListId || moving) return;
+    setMoving(true);
+    try {
+      // Calcula a posição real baseada no índice selecionado
+      const targetList = moveLists.find(l => l.id === moveSelectedListId);
+      const cards = targetList?.cards || [];
+      const isCurrentList = moveSelectedListId === card.listId && moveSelectedBoardId === boardId;
+
+      // Filtra o card atual se estiver movendo na mesma lista
+      const otherCards = isCurrentList
+        ? cards.filter(c => c.id !== card.id)
+        : cards;
+
+      let newPosition: number;
+      const idx = moveSelectedPosition - 1; // 0-indexed
+
+      if (otherCards.length === 0) {
+        newPosition = 1024;
+      } else if (idx === 0) {
+        newPosition = 512; // antes do primeiro
+      } else if (idx >= otherCards.length) {
+        newPosition = (otherCards.length + 1) * 1024; // depois do último
+      } else {
+        newPosition = (idx + 0.5) * 1024; // entre posições
+      }
+
+      const res = await fetch(`/api/cards/${card.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listId: moveSelectedListId,
+          position: newPosition,
+        }),
+      });
+      if (res.ok) {
+        setShowMovePopover(false);
+        onClose();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setMoving(false);
+    }
+  }
+
   // Formata data relativa simplificada
   function formatRelativeDate(dateStr: string) {
     const date = new Date(dateStr);
@@ -820,19 +1025,19 @@ export function CardDetailModal({
                     Sair
                   </button>
                   <button
-                    disabled
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                    onClick={openMovePopover}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                     </svg>
                     Mover
                   </button>
                   <button
-                    disabled
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                    onClick={openCopyPopover}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
                     </svg>
                     Copiar
@@ -887,6 +1092,167 @@ export function CardDetailModal({
                     </svg>
                     Excluir cartão
                   </button>
+                </div>
+              )}
+
+              {/* Copy Popover */}
+              {showCopyPopover && (
+                <div ref={copyPopoverRef} className="absolute right-0 top-full mt-1 w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-3 px-4 animate-in fade-in slide-in-from-top-1 duration-100 cursor-default">
+                  <div className="flex justify-between items-center mb-3">
+                    <button className="text-gray-400 invisible"><svg className="w-4 h-4"><path d=""/></svg></button>
+                    <h4 className="text-sm font-semibold text-gray-700">Copiar cartão</h4>
+                    <button onClick={() => setShowCopyPopover(false)} className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+                      <textarea
+                        value={copyTitle}
+                        onChange={(e) => setCopyTitle(e.target.value)}
+                        className="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 min-h-[60px] resize-none"
+                      />
+                    </div>
+
+                    {(checklists.length > 0 || cardMembers.length > 0) && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Manter...</label>
+                        <div className="space-y-1">
+                          {checklists.length > 0 && (
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <input 
+                                type="checkbox" 
+                                checked={copyKeepChecklists}
+                                onChange={(e) => setCopyKeepChecklists(e.target.checked)}
+                                className="w-4 h-4 text-violet-600 rounded border-gray-300 cursor-pointer"
+                              />
+                              <span className="text-sm text-gray-600 group-hover:text-gray-800">Checklists ({checklists.length})</span>
+                            </label>
+                          )}
+                          {cardMembers.length > 0 && (
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <input 
+                                type="checkbox" 
+                                checked={copyKeepMembers}
+                                onChange={(e) => setCopyKeepMembers(e.target.checked)}
+                                className="w-4 h-4 text-violet-600 rounded border-gray-300 cursor-pointer"
+                              />
+                              <span className="text-sm text-gray-600 group-hover:text-gray-800">Membros ({cardMembers.length})</span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Copiar para...</label>
+                      <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Quadro</label>
+                          <select 
+                            value={copySelectedBoardId} 
+                            onChange={(e) => setCopySelectedBoardId(e.target.value)}
+                            className="w-full text-sm bg-white border border-gray-300 rounded px-2 py-1.5 cursor-pointer outline-none focus:border-violet-500"
+                          >
+                            {copyBoards.map(b => (
+                              <option key={b.id} value={b.id}>{b.title}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Lista</label>
+                          <select 
+                            value={copySelectedListId} 
+                            onChange={(e) => setCopySelectedListId(e.target.value)}
+                            className="w-full text-sm bg-white border border-gray-300 rounded px-2 py-1.5 cursor-pointer outline-none focus:border-violet-500"
+                          >
+                            {copyLists.map(l => (
+                              <option key={l.id} value={l.id}>{l.title}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={submitCopy}
+                      disabled={copying || !copyTitle.trim() || !copySelectedListId}
+                      className="w-full mt-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {copying ? "Copiando..." : "Criar Cartão"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Move Popover */}
+              {showMovePopover && (
+                <div ref={movePopoverRef} className="absolute right-0 top-full mt-1 w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-3 px-4 animate-in fade-in slide-in-from-top-1 duration-100 cursor-default">
+                  <div className="flex justify-between items-center mb-3">
+                    <button className="text-gray-400 invisible"><svg className="w-4 h-4"><path d=""/></svg></button>
+                    <h4 className="text-sm font-semibold text-gray-700">Mover cartão</h4>
+                    <button onClick={() => setShowMovePopover(false)} className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Selecionar destino</label>
+                    <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Quadro</label>
+                        <select
+                          value={moveSelectedBoardId}
+                          onChange={(e) => setMoveSelectedBoardId(e.target.value)}
+                          className="w-full text-sm bg-white border border-gray-300 rounded px-2 py-1.5 cursor-pointer outline-none focus:border-violet-500"
+                        >
+                          {moveBoards.map(b => (
+                            <option key={b.id} value={b.id}>{b.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Lista</label>
+                          <select
+                            value={moveSelectedListId}
+                            onChange={(e) => setMoveSelectedListId(e.target.value)}
+                            className="w-full text-sm bg-white border border-gray-300 rounded px-2 py-1.5 cursor-pointer outline-none focus:border-violet-500"
+                          >
+                            {moveLists.map(l => (
+                              <option key={l.id} value={l.id}>{l.title}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="w-20">
+                          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Posição</label>
+                          <select
+                            value={moveSelectedPosition}
+                            onChange={(e) => setMoveSelectedPosition(Number(e.target.value))}
+                            className="w-full text-sm bg-white border border-gray-300 rounded px-2 py-1.5 cursor-pointer outline-none focus:border-violet-500"
+                          >
+                            {getMovePositionOptions().map(pos => (
+                              <option key={pos} value={pos}>{pos}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={submitMove}
+                      disabled={moving || !moveSelectedListId}
+                      className="w-full mt-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {moving ? "Movendo..." : "Mover"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
