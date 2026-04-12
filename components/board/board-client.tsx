@@ -82,6 +82,11 @@ export function BoardClient({ board, userName, initialCardId }: BoardClientProps
   const [newListTitle, setNewListTitle] = useState("");
   const [creatingList, setCreatingList] = useState(false);
 
+  // Sincronizar lists sempre que os dados do servidor (board prop) mudarem (ex: router.refresh)
+  useEffect(() => {
+    setLists(board.lists);
+  }, [board]);
+
   // Card detail modal state
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [selectedListTitle, setSelectedListTitle] = useState("");
@@ -99,9 +104,9 @@ export function BoardClient({ board, userName, initialCardId }: BoardClientProps
     })
   );
 
-  // Deep-linking: Abre o card caso o ID esteja na URL
+  // Deep-linking: Abre ou atualiza o card caso o ID esteja na URL
   useEffect(() => {
-    if (initialCardId && lists.length > 0 && !selectedCard) {
+    if (initialCardId && lists.length > 0) {
       for (const list of lists) {
         const card = list.cards.find((c) => c.id === initialCardId);
         if (card) {
@@ -111,7 +116,6 @@ export function BoardClient({ board, userName, initialCardId }: BoardClientProps
         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCardId, lists]);
 
   // ─── DnD Handlers ────────────────────────────────────────────────────

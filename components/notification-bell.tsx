@@ -186,6 +186,7 @@ export function NotificationBell() {
       setIsOpen(false);
       const cardIdParam = n.card?.id ? `?cardId=${n.card.id}` : "";
       router.push(`/boards/${n.board.id}${cardIdParam}`);
+      router.refresh(); // Garante o sync atualizando os dados do servidor
     }
   };
 
