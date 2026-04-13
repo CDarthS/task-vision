@@ -1821,7 +1821,7 @@ export function CardDetailModal({
             )}
 
             {/* Acoes rapidas */}
-            <div className="flex flex-nowrap gap-2 mb-4 overflow-x-auto pb-1">
+            <div className="flex flex-nowrap gap-2 mb-6 overflow-x-auto">
               {/* Botao + Adicionar com dropdown */}
               <div ref={addMenuRef} className="relative shrink-0">
                 <button
@@ -2069,7 +2069,7 @@ export function CardDetailModal({
             )}
 
             {/* Membros + Data Entrega */}
-            <div className="flex items-center gap-6 mb-6">
+            <div className="flex items-start gap-6 mb-6 flex-wrap">
               <div ref={memberPickerRef} className="relative">
                 <p className="text-xs text-gray-500 font-medium mb-1.5">Membros</p>
                 <div className="flex items-center gap-1">
@@ -2276,7 +2276,7 @@ export function CardDetailModal({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Adicione uma descricao mais detalhada..."
-                    className="w-full min-h-[120px] px-4 py-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none transition-all"
+                    className="w-full min-h-[100px] px-4 py-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none transition-all"
                     autoFocus
                   />
                   <div className="flex items-center gap-2 mt-2">
@@ -2301,7 +2301,7 @@ export function CardDetailModal({
               ) : (
                 <div
                   onClick={() => setEditingDescription(true)}
-                  className="min-h-[80px] px-4 py-3 text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="min-h-[100px] px-4 py-3 text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors"
                 >
                   {card.description || "Adicione uma descricao mais detalhada..."}
                 </div>
@@ -2331,8 +2331,8 @@ export function CardDetailModal({
                   <div className="mt-2 space-y-2">
                     {uploadingAttachment && (
                       <div className="flex items-center gap-3 p-2.5 bg-violet-50 border border-violet-200 rounded-lg animate-pulse">
-                        <div className="w-10 h-10 rounded-lg bg-violet-200 flex items-center justify-center shrink-0">
-                          <svg className="w-5 h-5 text-violet-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <div className="w-8 h-8 rounded-lg bg-violet-200 flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-violet-500 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
@@ -2349,24 +2349,24 @@ export function CardDetailModal({
                           {attachment.type === "image" ? (
                             <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={attachment.url} alt={displayName} className="w-10 h-10 rounded-lg object-cover border border-gray-200 hover:opacity-80 transition-opacity"
+                              <img src={attachment.url} alt={displayName} className="w-8 h-8 rounded-lg object-cover border border-gray-200 hover:opacity-80 transition-opacity"
                                 onError={(e) => { e.currentTarget.style.display = "none"; const fb = e.currentTarget.parentElement?.querySelector(".img-fallback"); if (fb) (fb as HTMLElement).style.display = "flex"; }}
                               />
-                              <div className="img-fallback w-10 h-10 rounded-lg bg-gray-200 items-center justify-center hidden">
-                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <div className="img-fallback w-8 h-8 rounded-lg bg-gray-200 items-center justify-center hidden">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
                                 </svg>
                               </div>
                             </a>
                           ) : attachment.type === "audio" ? (
-                            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                              <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                              <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
                               </svg>
                             </div>
                           ) : (
-                            <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center shrink-0">
-                              <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center shrink-0">
+                              <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.86-9.86a4.5 4.5 0 0 0-6.364 0l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                               </svg>
                             </div>
@@ -2564,7 +2564,7 @@ export function CardDetailModal({
                             )}
 
                             {/* Botões de ação (sempre visíveis minimizados) */}
-                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               {/* Botão assignee */}
                               <button
                                 title={item.assignee ? "Trocar responsável" : "Atribuir responsável"}
@@ -2734,7 +2734,7 @@ export function CardDetailModal({
           </div>
 
           {/* Coluna direita — atividade */}
-          <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-gray-100 p-6">
+          <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-gray-100 p-6 shrink-0">
             {/* Header atividade */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -2752,7 +2752,7 @@ export function CardDetailModal({
             </div>
 
             {/* Campo de comentario */}
-            <div className="mb-4">
+            <div className="mb-6">
               <div className="flex gap-2 relative">
                 <input
                   ref={commentInputRef}
@@ -2761,7 +2761,7 @@ export function CardDetailModal({
                   onChange={handleCommentChange}
                   onKeyDown={handleCommentKeyDown}
                   placeholder="Escrever um comentário..."
-                  className="flex-1 px-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 transition-all placeholder:text-gray-400"
+                  className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 transition-all placeholder:text-gray-400"
                 />
                 {commentText.trim() && (
                   <button
@@ -2991,7 +2991,7 @@ export function CardDetailModal({
 
                           {/* Emoji picker (emoji-mart) */}
                           {showEmojiPickerFor === item.id && (
-                            <div className="absolute z-50 mt-1">
+                            <div className="absolute z-50 mt-1 right-0">
                               <EmojiPicker
                                 onEmojiSelect={(emoji: { native: string }) => toggleReaction(item.id, emoji.native)}
                                 onClickOutside={() => setShowEmojiPickerFor(null)}

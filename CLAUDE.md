@@ -16,6 +16,12 @@ Ignorar esta regra e estritamente proibido. Se voce alterar o projeto, voce deve
 
 ---
 
+## REGRA OBRIGATORIA DE COMMITS
+
+**NUNCA mencione o nome "Trello" em mensagens de commit.** O Task Vision e um projeto independente. Use termos genericos como "estilo kanban", "inspirado em boards profissionais" ou simplesmente descreva a funcionalidade sem referenciar produtos de terceiros.
+
+---
+
 ## 🗓️ 2026-04-08 — Fase 1: Esqueleto Vivo
 
 ### 🔍 Referência
@@ -1044,9 +1050,9 @@ Esta regra deve ser seguida por qualquer IA que tenha capacidade de abrir e inte
 - **Admin:** `https://task-vision-production.up.railway.app/admin/users`
 
 ### Credenciais de Admin em Producao (Railway):
-- **Email:** `admin@taskvision.com`
-- **Senha:** `Admin2026!`
-- **ATENCAO:** A senha NAO e `Admin123!`. Foi definida como `Admin2026!` nas variaveis de ambiente do Railway (DEFAULT_ADMIN_PASSWORD).
+- **Email:** `carlosdartier@taskvision.com`
+- **Senha:** `tsk123`
+- **ATENCAO:** Credenciais atualizadas em 2026-04-13 nas variaveis de ambiente do Railway (DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_NAME, DEFAULT_ADMIN_PASSWORD).
 
 ### Objetivo:
 O usuario nao sabe programar e depende da IA para verificar se as mudancas estao funcionando corretamente em producao. A IA deve ser proativa em testar via navegador sempre que possivel.
