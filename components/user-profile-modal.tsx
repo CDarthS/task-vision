@@ -129,7 +129,7 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
     setSuccess("");
 
     try {
-      const payload: any = { name: editName.trim() };
+      const payload: Record<string, string> = { name: editName.trim() };
       if (editPassword.trim()) {
         payload.password = editPassword.trim();
       }

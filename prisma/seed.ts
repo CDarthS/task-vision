@@ -22,6 +22,9 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  // Username derivado do email (parte antes do @)
+  const username = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "") || "admin";
+
   await prisma.user.upsert({
     where: { email },
     update: {
@@ -33,6 +36,7 @@ async function main() {
       email,
       password: hashedPassword,
       name,
+      username,
       role: "ADMIN",
     },
   });

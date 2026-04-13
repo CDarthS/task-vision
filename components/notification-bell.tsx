@@ -42,6 +42,7 @@ const NOTIFICATION_ICONS: Record<string, string> = {
   CHECKLIST_ITEM_OVERDUE: "⚠️",
   CARD_COMPLETED: "✅",
   CARD_UNCOMPLETED: "↩️",
+  USER_MENTIONED: "@",
 };
 
 function getNotificationText(n: Notification): string {
@@ -72,6 +73,8 @@ function getNotificationText(n: Notification): string {
       const itemTitle = n.data?.itemTitle || "um item";
       return `Item "${itemTitle}" em "${cardTitle}" está com prazo vencido`;
     }
+    case "USER_MENTIONED":
+      return `${creatorName} mencionou você em um comentário em "${cardTitle}"`;
     default:
       return `Nova notificação sobre "${cardTitle}"`;
   }
@@ -333,8 +336,8 @@ export function NotificationBell() {
                     {getNotificationText(n)}
                   </p>
 
-                  {/* Preview do comentário */}
-                  {n.type === "COMMENT_ADDED" && n.data?.commentText && (
+                  {/* Preview do comentário (para comentarios e mencoes) */}
+                  {(n.type === "COMMENT_ADDED" || n.type === "USER_MENTIONED") && n.data?.commentText && (
                     <p className="text-xs text-slate-500 mt-1 truncate">
                       &quot;{n.data.commentText}&quot;
                     </p>

@@ -955,6 +955,45 @@ taskvision/
 
 ---
 
+## 2026-04-13 — Revisao e correcao da implementacao de Mencoes (@)
+
+### Contexto
+- Outra IDE implementou o sistema de mencoes (@username e @card) nos comentarios
+- Revisao profunda identificou 4 bugs criticos (build quebrado), 3 items faltando, 5 erros de lint
+
+### Correcoes Fase 1 — Build criticos
+
+**`components/board/card-detail-modal.tsx`:**
+- Criada funcao `renderTextWithMentions()` que destaca @username em violeta (`text-violet-600 bg-violet-50`)
+- Verifica se o username e membro do workspace ou "card" antes de destacar
+- Adicionado `image: null` na entrada especial `@card` do autocomplete (fix tipo TS)
+- Corrigido `handleMentionSelect` de `[key: string]: any` para `MemberData`
+
+**`prisma/seed.ts`:**
+- Adicionado `username` derivado do email na criacao do admin (campo agora obrigatorio)
+
+**`scripts/fill-usernames.ts`:**
+- Reescrito para buscar `username: ""` (nao mais `null`, campo nao e nullable)
+- Usa PrismaPg adapter correto
+
+### Correcoes Fase 2 — Notificacoes de mencao
+
+**`components/notification-bell.tsx`:**
+- Adicionado case `USER_MENTIONED` no `getNotificationText()`: "fulano mencionou voce em um comentario"
+- Adicionado icone `@` no mapa `NOTIFICATION_ICONS`
+- Preview de texto do comentario agora aparece para `USER_MENTIONED` (antes so `COMMENT_ADDED`)
+
+### Correcoes de lint (5 erros → 0)
+- `app/api/users/me/route.ts`: `any` → `Record<string, unknown>`
+- `card-detail-modal.tsx`: `any` → `MemberData`
+- `user-profile-modal.tsx`: `any` → `Record<string, string>`
+
+### Verificacao
+- `npm run build` — 0 erros
+- `npm run lint` — 0 erros (4 warnings pre-existentes)
+
+---
+
 ## Fluxo de Deploy - REGRA OBRIGATORIA
 
 Esta regra deve ser seguida sem excecoes em todas as interacoes com este projeto.

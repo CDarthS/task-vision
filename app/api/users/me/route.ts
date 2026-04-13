@@ -11,8 +11,8 @@ export async function PATCH(request: Request) {
     // Como Next.js converte auto, pegamos do json.
     const body = await request.json();
     
-    let responseData: any = { success: true };
-    const updateData: any = {};
+    const responseData: Record<string, unknown> = { success: true };
+    const updateData: Record<string, unknown> = {};
 
     if (body.image !== undefined) {
       if (body.image === null || (typeof body.image === 'string' && body.image.startsWith('data:image/'))) {
@@ -25,6 +25,20 @@ export async function PATCH(request: Request) {
 
     if (body.name) {
       updateData.name = body.name.trim();
+    }
+
+    if (body.username !== undefined) {
+      if (!body.username.trim()) {
+        return NextResponse.json({ error: "Username não pode ser vazio" }, { status: 400 });
+      }
+      // Check duplicate
+      const duplicate = await prisma.user.findFirst({
+        where: { username: body.username.trim(), id: { not: user.id } }
+      });
+      if (duplicate) {
+        return NextResponse.json({ error: "Username já em uso" }, { status: 409 });
+      }
+      updateData.username = body.username.toLowerCase().trim();
     }
 
     if (body.password) {

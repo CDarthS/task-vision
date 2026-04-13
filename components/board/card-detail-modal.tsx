@@ -109,7 +109,9 @@ interface MemberData {
   id: string;
   name: string;
   email: string;
+  username?: string | null;
   image?: string | null;
+  isSpecial?: boolean;
 }
 
 import type { CardData } from "@/lib/types";
@@ -180,6 +182,13 @@ export function CardDetailModal({
   const [commentText, setCommentText] = useState("");
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
+  
+  // Mentions state
+  const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(-1);
+  const commentInputRef = useRef<HTMLInputElement>(null);
+
 
   // Checklists state
   const [checklists, setChecklists] = useState<ChecklistData[]>([]);
@@ -694,6 +703,82 @@ export function CardDetailModal({
     }
   }
 
+  // Função auxiliar para Mentions
+  const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCommentText(value);
+
+    // simple check: find last "@" before cursor
+    const cursorPosition = e.target.selectionStart || 0;
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lastAtMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (lastAtMatch) {
+      setMentionSearch(lastAtMatch[1].toLowerCase());
+      setMentionMenuOpen(true);
+      setMentionIndex(0);
+    } else {
+      setMentionMenuOpen(false);
+    }
+  };
+
+  const filteredMentions = [
+    { id: "all-card-members", username: "card", name: "Todos os membros neste cartão", image: null, isSpecial: true },
+    ...workspaceMembers.filter(m => 
+      m.username?.toLowerCase().includes(mentionSearch) || 
+      m.name.toLowerCase().includes(mentionSearch)
+    )
+  ];
+
+  const handleMentionSelect = (mention: MemberData) => {
+    if (!commentInputRef.current) return;
+    const mentionName = mention.username || mention.name.split(" ")[0].toLowerCase();
+    const value = commentText;
+    const cursorPosition = commentInputRef.current.selectionStart || 0;
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const textAfterCursor = value.substring(cursorPosition);
+    const lastAtIdx = textBeforeCursor.lastIndexOf("@");
+    
+    if (lastAtIdx >= 0) {
+      const newTextBefore = textBeforeCursor.substring(0, lastAtIdx) + `@${mentionName} `;
+      setCommentText(newTextBefore + textAfterCursor);
+      // Wait for react to update before focusing/setting cursor
+      setTimeout(() => {
+        if (commentInputRef.current) {
+          commentInputRef.current.focus();
+          const newPos = newTextBefore.length;
+          commentInputRef.current.setSelectionRange(newPos, newPos);
+        }
+      }, 0);
+    }
+    setMentionMenuOpen(false);
+  };
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (mentionMenuOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex(prev => Math.min(prev + 1, filteredMentions.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (filteredMentions[mentionIndex]) {
+          handleMentionSelect(filteredMentions[mentionIndex]);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setMentionMenuOpen(false);
+      }
+    } else {
+      if (e.key === "Enter" && commentText.trim()) {
+        e.preventDefault();
+        postComment();
+      }
+    }
+  };
+
   async function postComment() {
     if (!commentText.trim() || postingComment) return;
     setPostingComment(true);
@@ -716,6 +801,33 @@ export function CardDetailModal({
   }
 
   // Traduz tipo de atividade para texto legivel
+  // Renderiza texto com mencoes (@username) destacadas em azul
+  function renderTextWithMentions(text: string | undefined) {
+    if (!text) return null;
+    // Divide o texto em partes: texto normal e mencoes @username
+    const parts = text.split(/(@\w+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("@")) {
+        const username = part.slice(1).toLowerCase();
+        // Verifica se e um membro valido do workspace ou "card"
+        const isMember = username === "card" || workspaceMembers.some(
+          (m) => m.username?.toLowerCase() === username
+        );
+        if (isMember) {
+          return (
+            <span
+              key={i}
+              className="text-violet-600 bg-violet-50 font-semibold px-1 rounded"
+            >
+              {part}
+            </span>
+          );
+        }
+      }
+      return <span key={i}>{part}</span>;
+    });
+  }
+
   function getActivityText(activity: ActivityData): string {
     const data = activity.data || {};
     switch (activity.type) {
@@ -2181,14 +2293,13 @@ export function CardDetailModal({
 
             {/* Campo de comentario */}
             <div className="mb-4">
-              <div className="flex gap-2">
+              <div className="flex gap-2 relative">
                 <input
+                  ref={commentInputRef}
                   type="text"
                   value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && commentText.trim()) postComment();
-                  }}
+                  onChange={handleCommentChange}
+                  onKeyDown={handleCommentKeyDown}
                   placeholder="Escrever um comentário..."
                   className="flex-1 px-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 transition-all placeholder:text-gray-400"
                 />
@@ -2200,6 +2311,46 @@ export function CardDetailModal({
                   >
                     {postingComment ? "..." : "Enviar"}
                   </button>
+                )}
+
+                {/* Popover de Menções */}
+                {mentionMenuOpen && filteredMentions.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 w-64 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden z-50">
+                    <div className="max-h-48 overflow-y-auto">
+                      {filteredMentions.map((m, idx) => (
+                        <div
+                          key={m.id}
+                          onClick={() => handleMentionSelect(m)}
+                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                            idx === mentionIndex ? "bg-violet-50" : "hover:bg-gray-50"
+                          }`}
+                        >
+                          {m.isSpecial ? (
+                            <div className="w-6 h-6 rounded bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center shrink-0 overflow-hidden">
+                              {m.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={m.image} alt={m.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-[10px] font-bold text-gray-500">
+                                  {m.name.substring(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{m.name}</p>
+                            <p className="text-xs text-gray-500 truncate">@{m.username}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -2293,7 +2444,7 @@ export function CardDetailModal({
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-700">{itemUserName}</p>
                           <div className="mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700 break-words">
-                            {item.text}
+                            {renderTextWithMentions(item.text)}
                           </div>
                           <p className="text-xs text-gray-400 mt-1">
                             {formatRelativeDate(item.createdAt)}
