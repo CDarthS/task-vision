@@ -2095,3 +2095,16 @@ app/api/queue/
 
 ### Verificacao
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-13 — Estética: Atualização do Favicon
+
+### Melhorias
+- O Favicon antigo padrão (logo da Vercel/Next.js) foi removido (`app/favicon.ico`).
+- Foi gerado via GenAI um novo logo minimalista em tons de Violeta e Índigo para representar a identidade da aplicação Task Vision.
+- Um novo arquivo `app/icon.png` foi incluído, alinhando a aplicação às melhores práticas do Next.js App Router para customização de abas do navegador.
+
+### Arquivos Modificados
+- `app/icon.png` (NOVO)
+- `app/favicon.ico` (EXCLUÍDO)
