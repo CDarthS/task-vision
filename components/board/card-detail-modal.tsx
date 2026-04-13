@@ -2315,7 +2315,7 @@ export function CardDetailModal({
 
                 {/* Popover de Menções */}
                 {mentionMenuOpen && filteredMentions.length > 0 && (
-                  <div className="absolute bottom-full left-0 mb-1 w-64 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden z-50">
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden z-50">
                     <div className="max-h-48 overflow-y-auto">
                       {filteredMentions.map((m, idx) => (
                         <div

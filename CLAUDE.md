@@ -1664,3 +1664,15 @@ app/api/queue/
 - Erro inicial: "Grouping is not supported by tabs in this window" — resolvido com `switch_browser`
 - IA agora tem acesso total ao navegador para testes em producao
 - Fluxo: abrir aba → navegar → capturar screenshot → interagir com UI
+
+---
+
+## 2026-04-13 — UI: Dropdown de mencoes reposicionado para baixo
+
+### Problema reportado
+- Ao digitar `@` no campo de comentario, o dropdown de mencoes aparecia ACIMA do input
+- Usuario queria que aparecesse ABAIXO do input (mais natural)
+
+### Correcao em `components/board/card-detail-modal.tsx`
+- Classe CSS do dropdown: `bottom-full mb-1` → `top-full mt-1`
+- Mudanca de 1 linha, apenas posicionamento CSS
