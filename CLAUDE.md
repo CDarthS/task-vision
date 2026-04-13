@@ -22,6 +22,54 @@ Ignorar esta regra e estritamente proibido. Se voce alterar o projeto, voce deve
 
 ---
 
+## REGRA OBRIGATORIA DE UI/CSS (Design System)
+
+Estas regras devem ser seguidas em TODA alteracao visual do projeto. Nao inventar valores novos — usar SEMPRE os padroes abaixo.
+
+### Espacamento entre secoes
+- Todas as secoes da coluna esquerda do modal: `mb-6` (NUNCA mb-4, mb-5 ou mb-8)
+- Gap entre colunas lado a lado (ex: Membros + Data): `gap-6`
+- Gap entre botoes inline: `gap-2`
+- Gap entre items de lista (checklists, anexos): `space-y-2`
+
+### Padding
+- Inputs e botoes de acao: `px-3 py-2` (NUNCA py-2.5 ou py-1.5 — exceto botoes pequenos)
+- Cards/boxes de conteudo: `px-4 py-3`
+- Botoes de acao rapida (Adicionar, Etiquetas, etc): `px-3 py-1.5`
+
+### Tipografia
+- Titulo de secao (Descricao, Checklist): `text-sm font-semibold text-gray-800`
+- Labels pequenos (Membros, Data Entrega): `text-xs text-gray-500 font-medium mb-1.5`
+- Texto de conteudo: `text-sm text-gray-700`
+- Texto secundario/muted: `text-xs text-gray-400`
+- Links de acao (Editar, Excluir): `text-xs text-gray-400 hover:text-gray-600 cursor-pointer`
+
+### Avatares
+- Avatar grande (membros do card): `w-8 h-8 rounded-full`
+- Avatar medio (timeline/comentarios): `w-8 h-8 rounded-full`
+- Avatar no card face (board): `w-7 h-7 rounded-full`
+- Avatar pequeno (checklist assignee): `w-5 h-5 rounded-full`
+
+### Thumbnails (anexos)
+- Thumbnail de anexo na lista: `w-8 h-8 rounded-lg`
+- Icone dentro do thumbnail: `w-4 h-4`
+
+### Bordas e cantos
+- Cards/modais: `rounded-xl` ou `rounded-2xl`
+- Inputs: `rounded-lg`
+- Botoes: `rounded-lg`
+- Badges/pills: `rounded-full`
+
+### Layout do modal
+- Coluna esquerda: `flex-1 p-6`
+- Coluna direita: `md:w-72 shrink-0 p-6`
+- Divisao: `flex flex-col md:flex-row`
+
+### Regra de ouro
+Antes de adicionar QUALQUER classe CSS nova, verificar se ja existe um padrao acima. Se o valor nao esta listado, e provavelmente um erro. Consultar esta secao ANTES de escrever CSS.
+
+---
+
 ## 🗓️ 2026-04-08 — Fase 1: Esqueleto Vivo
 
 ### 🔍 Referência
