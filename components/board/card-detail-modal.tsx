@@ -204,7 +204,7 @@ export function CardDetailModal({
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionIndex, setMentionIndex] = useState(-1);
-  const commentInputRef = useRef<HTMLInputElement>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
 
   // Checklists state
@@ -928,7 +928,7 @@ export function CardDetailModal({
   }
 
   // Função auxiliar para Mentions
-  const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value;
     setCommentText(value);
 
@@ -978,7 +978,7 @@ export function CardDetailModal({
     setMentionMenuOpen(false);
   };
 
-  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (mentionMenuOpen) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -2734,7 +2734,7 @@ export function CardDetailModal({
           </div>
 
           {/* Coluna direita — atividade */}
-          <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-gray-100 p-6 shrink-0">
+          <div className="w-full md:w-96 border-t md:border-t-0 md:border-l border-gray-100 p-6 shrink-0">
             {/* Header atividade */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -2753,24 +2753,31 @@ export function CardDetailModal({
 
             {/* Campo de comentario */}
             <div className="mb-6">
-              <div className="flex gap-2 relative">
-                <input
+              <div className="relative">
+                <textarea
                   ref={commentInputRef}
-                  type="text"
                   value={commentText}
-                  onChange={handleCommentChange}
+                  onChange={(e) => {
+                    handleCommentChange(e);
+                    // Auto-expand
+                    e.target.style.height = "auto";
+                    e.target.style.height = e.target.scrollHeight + "px";
+                  }}
                   onKeyDown={handleCommentKeyDown}
                   placeholder="Escrever um comentário..."
-                  className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 transition-all placeholder:text-gray-400"
+                  rows={1}
+                  className="w-full px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 transition-all placeholder:text-gray-400 resize-none overflow-hidden"
                 />
                 {commentText.trim() && (
-                  <button
-                    onClick={postComment}
-                    disabled={postingComment}
-                    className="px-3 py-2 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
-                  >
-                    {postingComment ? "..." : "Enviar"}
-                  </button>
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={postComment}
+                      disabled={postingComment}
+                      className="px-3 py-1.5 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {postingComment ? "..." : "Enviar"}
+                    </button>
+                  </div>
                 )}
 
                 {/* Popover de Menções */}
