@@ -25,6 +25,9 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [editName, setEditName] = useState(user.name);
+  const [editPassword, setEditPassword] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Resize and compress the image using HTML5 Canvas
@@ -39,6 +42,7 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
 
     setLoading(true);
     setError("");
+    setSuccess("");
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -114,6 +118,40 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
     }
   };
 
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      setError("O nome e obrigatorio.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const payload: any = { name: editName.trim() };
+      if (editPassword.trim()) {
+        payload.password = editPassword.trim();
+      }
+
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Falha ao atualizar o perfil.");
+
+      setSuccess("Perfil atualizado com sucesso!");
+      setEditPassword(""); // clear password field
+      router.refresh();
+    } catch {
+      setError("Erro ao salvar as alteracoes.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="tv-modal sm:max-w-[425px]">
@@ -182,6 +220,38 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
                 Remover
               </Button>
             )}
+          </div>
+
+          {/* Edit Profile Form */}
+          <div className="w-full mt-4 space-y-4 pt-4 border-t border-white/10 text-left">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Nome</label>
+              <input 
+                type="text" 
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-400 focus:outline-none" 
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Nova Senha (opcional)</label>
+              <input 
+                type="password" 
+                placeholder="••••••••" 
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-400 focus:outline-none placeholder:text-slate-600" 
+              />
+            </div>
+            <Button 
+              onClick={handleSaveProfile} 
+              disabled={loading} 
+              variant="gradient"
+              className="w-full mt-2"
+            >
+              {loading ? "Salvando..." : "Salvar Alteraçoes"}
+            </Button>
+            {success && <p className="text-sm text-green-400 mt-2 text-center">{success}</p>}
           </div>
         </div>
       </DialogContent>
