@@ -266,6 +266,7 @@ export function CardDetailModal({
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [showAttachments, setShowAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -2567,123 +2568,123 @@ export function CardDetailModal({
                 </div>
               );
             })}
-          </div>
 
-          {/* Secao de Anexos */}
-          {(attachments.length > 0 || uploadingAttachment) && (
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
-                </svg>
-                <h3 className="text-sm font-semibold text-gray-800">
-                  Anexos
-                  {attachments.length > 0 && (
-                    <span className="ml-2 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">
-                      {attachments.length}
-                    </span>
-                  )}
-                </h3>
-              </div>
+            {/* Submenu Anexos — colapsavel abaixo da descricao/checklists */}
+            {(attachments.length > 0 || uploadingAttachment) && (
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowAttachments(!showAttachments)}
+                  className="flex items-center gap-2 w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-700">Anexos</span>
+                  <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full">
+                    {attachments.length}
+                  </span>
+                  <svg className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${showAttachments ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
 
-              <div className="space-y-2">
-                {/* Upload em progresso */}
-                {uploadingAttachment && (
-                  <div className="flex items-center gap-3 p-3 bg-violet-50 border border-violet-200 rounded-lg animate-pulse">
-                    <div className="w-16 h-16 rounded-lg bg-violet-200 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-violet-500 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                    </div>
-                    <span className="text-sm text-violet-700">{uploadStatus}</span>
-                  </div>
-                )}
-
-                {/* Lista de anexos */}
-                {attachments.map((attachment) => (
-                  <div
-                    key={attachment.id}
-                    className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group"
-                  >
-                    {/* Thumbnail / Preview */}
-                    {attachment.type === "image" ? (
-                      <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={attachment.url}
-                          alt={attachment.name}
-                          className="w-16 h-16 rounded-lg object-cover border border-gray-200 hover:opacity-80 transition-opacity"
-                          onError={(e) => {
-                            const img = e.currentTarget;
-                            img.style.display = "none";
-                            const fallback = img.parentElement?.querySelector(".img-fallback");
-                            if (fallback) (fallback as HTMLElement).style.display = "flex";
-                          }}
-                        />
-                        <div className="img-fallback w-16 h-16 rounded-lg bg-gray-200 items-center justify-center hidden">
-                          <svg className="w-7 h-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                {(showAttachments || uploadingAttachment) && (
+                  <div className="mt-2 space-y-2">
+                    {/* Upload em progresso */}
+                    {uploadingAttachment && (
+                      <div className="flex items-center gap-3 p-2.5 bg-violet-50 border border-violet-200 rounded-lg animate-pulse">
+                        <div className="w-10 h-10 rounded-lg bg-violet-200 flex items-center justify-center shrink-0">
+                          <svg className="w-5 h-5 text-violet-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
                         </div>
-                      </a>
-                    ) : attachment.type === "audio" ? (
-                      <div className="w-16 h-16 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                        <svg className="w-7 h-7 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-                        </svg>
-                      </div>
-                    ) : (
-                      <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center shrink-0">
-                        <svg className="w-7 h-7 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.86-9.86a4.5 4.5 0 0 0-6.364 0l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                        </svg>
+                        <span className="text-sm text-violet-700 truncate">{uploadStatus}</span>
                       </div>
                     )}
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{attachment.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {attachment.creator?.name || "Sistema"} • {new Date(attachment.createdAt).toLocaleDateString("pt-BR")}
-                        {attachment.size && ` • ${(attachment.size / 1024).toFixed(0)}KB`}
-                      </p>
+                    {/* Lista de anexos */}
+                    {attachments.map((attachment) => {
+                      const displayName = attachment.name.length > 30
+                        ? attachment.name.slice(0, 27) + "..." + attachment.name.slice(attachment.name.lastIndexOf("."))
+                        : attachment.name;
+                      return (
+                        <div
+                          key={attachment.id}
+                          className="flex items-center gap-2.5 p-2.5 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group"
+                        >
+                          {/* Icone compacto */}
+                          {attachment.type === "image" ? (
+                            <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={attachment.url}
+                                alt={displayName}
+                                className="w-10 h-10 rounded-lg object-cover border border-gray-200 hover:opacity-80 transition-opacity"
+                                onError={(e) => {
+                                  const img = e.currentTarget;
+                                  img.style.display = "none";
+                                  const fb = img.parentElement?.querySelector(".img-fallback");
+                                  if (fb) (fb as HTMLElement).style.display = "flex";
+                                }}
+                              />
+                              <div className="img-fallback w-10 h-10 rounded-lg bg-gray-200 items-center justify-center hidden">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                                </svg>
+                              </div>
+                            </a>
+                          ) : attachment.type === "audio" ? (
+                            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                              <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center shrink-0">
+                              <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.86-9.86a4.5 4.5 0 0 0-6.364 0l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                              </svg>
+                            </div>
+                          )}
 
-                      {/* Audio player inline */}
-                      {attachment.type === "audio" && (
-                        <audio
-                          controls
-                          src={attachment.url}
-                          className="mt-2 w-full h-8"
-                          preload="metadata"
-                        />
-                      )}
-                    </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate" title={attachment.name}>{displayName}</p>
+                            <p className="text-xs text-gray-500">
+                              {attachment.creator?.name || "Sistema"} • {new Date(attachment.createdAt).toLocaleDateString("pt-BR")}
+                              {attachment.size && ` • ${(attachment.size / 1024).toFixed(0)}KB`}
+                            </p>
+                            {attachment.type === "audio" && (
+                              <audio controls src={attachment.url} className="mt-1.5 w-full h-7" preload="metadata" />
+                            )}
+                          </div>
 
-                    {/* Botao deletar */}
-                    <button
-                      onClick={() => {
-                        setConfirmAction({
-                          title: "Excluir anexo?",
-                          description: `"${attachment.name}" sera removido permanentemente.`,
-                          label: "Excluir",
-                          action: async () => {
-                            await deleteAttachment(attachment.id);
-                          },
-                        });
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer shrink-0"
-                      title="Excluir anexo"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                      </svg>
-                    </button>
+                          {/* Botao deletar */}
+                          <button
+                            onClick={() => {
+                              setConfirmAction({
+                                title: "Excluir anexo?",
+                                description: `"${displayName}" sera removido permanentemente.`,
+                                label: "Excluir",
+                                action: async () => { await deleteAttachment(attachment.id); },
+                              });
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer shrink-0"
+                            title="Excluir anexo"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Coluna direita — atividade */}
           <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-gray-100 p-6">

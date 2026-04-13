@@ -1857,5 +1857,38 @@ app/api/queue/
 - SVGs dos botoes: adicionado `shrink-0` para evitar compressao do icone
 - Thumbnail `<img>`: adicionado `onError` handler que esconde img e mostra fallback (icone de imagem)
 
-### Verificacao
+### Verificacao (MIME + layout)
+- `npm run build` — 0 erros
+
+---
+
+## 2026-04-13 — Bugfix: Secao Anexos empurrava Comentarios para fora + nomes gigantes
+
+### Problemas reportados
+1. Secao "Anexos" estava FORA da coluna esquerda (entre colunas), empurrando "Comentarios e atividade" para fora da tela
+2. Nomes de arquivo longos quebravam o layout
+3. Usuario queria submenu colapsavel para esconder anexos
+
+### Causa raiz
+- A secao de Anexos foi inserida entre `</div>` da coluna esquerda e `<div>` da coluna direita
+- Isso criava uma terceira coluna fantasma que empurrava o layout
+- Nomes de arquivo longos (ex: "Gemini_Generated_Image_51u7s551u7s551u7.png") nao tinham truncamento
+
+### Correcoes em `components/board/card-detail-modal.tsx`
+
+**Secao Anexos reposicionada e redesenhada:**
+- Removida da posicao entre colunas (era uma `<div>` solta)
+- Movida para DENTRO da coluna esquerda, apos Checklists
+- Transformada em submenu colapsavel: botao "Anexos (N)" com seta que abre/fecha a lista
+- Estado `showAttachments` controla visibilidade (default: fechado)
+- Upload em progresso forca abertura automatica
+- Thumbnails compactos: 40x40px (antes 64x64px)
+- Padding e gaps reduzidos para layout mais enxuto
+
+**Nomes de arquivo truncados:**
+- Nomes > 30 chars sao cortados: primeiros 27 chars + "..." + extensao original
+- `title={attachment.name}` mostra nome completo no hover
+- Classe `truncate` no CSS garante overflow ellipsis
+
+### Verificacao (Anexos colapsavel)
 - `npm run build` — 0 erros
