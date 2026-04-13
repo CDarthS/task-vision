@@ -1923,6 +1923,59 @@ app/api/queue/
 ### Script temporario
 - `scripts/set-bucket-public.ts` — tentou PutBucketPolicy e PutBucketAcl, ambos falharam no Tigris. Mantido como referencia.
 
-### Verificacao
+### Verificacao (pre-signed URLs)
 - `npm run build` — 0 erros
 - Testado em producao: imagem carrega, audio toca, submenu colapsavel funciona
+
+---
+
+## 2026-04-13 — Emoji Reactions + Editar + Excluir Comentarios
+
+### Contexto
+- Comentarios eram read-only apos postar — sem editar, excluir ou reagir
+- Usuario queria funcionalidade estilo Trello
+
+### Schema Prisma — `prisma/schema.prisma`
+- Novo model `CommentReaction`: id, commentId, userId, emoji, createdAt
+- Constraint unique `[commentId, userId, emoji]` (1 reacao por emoji por user por comentario)
+- Cascade delete do Comment e User
+- Relacoes reversas em Comment (`reactions`) e User (`commentReactions`)
+- Aplicado com `prisma db push` via URL publica Railway (ballast.proxy.rlwy.net:31941)
+
+### Activity types — `lib/activity.ts`
+- Adicionados `COMMENT_EDITED` e `COMMENT_DELETED`
+
+### API Comments — `app/api/cards/[id]/comments/route.ts`
+- **GET**: agora inclui `reactions` com user info no include do Prisma
+- **PATCH** (novo): editar texto do comentario (so autor ou admin)
+- **DELETE** (novo): excluir comentario (so autor ou admin)
+- Ambos logam atividade e verificam permissao
+
+### API Reactions — `app/api/cards/[id]/comments/reactions/route.ts` (novo)
+- **POST**: toggle reacao — se existe remove, se nao cria
+- Whitelist de 6 emojis permitidos
+- Retorna todas as reactions atualizadas do comentario
+
+### Props — `components/board/board-client.tsx`
+- `isAdmin={isGlobalAdmin}` passado ao CardDetailModal
+
+### UI — `components/board/card-detail-modal.tsx`
+- Interface `CommentReactionRaw` para reactions cruas do backend
+- `CommentData` estendido com `updatedAt` e `reactions`
+- `CardDetailModalProps` estendido com `isAdmin`
+- Estados: `editingCommentId`, `editCommentText`, `showEmojiPickerFor`
+- `editComment()`: PATCH + atualiza estado local
+- `deleteComment()`: DELETE + remove do estado local
+- `toggleReaction()`: optimistic update + POST + sincroniza com servidor
+- TimelineItem estendido com `updatedAt` e `reactions`
+- Renderizacao do comentario reescrita:
+  - Se editando: textarea com Salvar/Cancelar (Enter salva, Esc cancela)
+  - Reaction pills: emoji + contagem, clicavel para toggle, hover mostra nomes
+  - Links de acao: emoji (😀) · Editar · Excluir (so para autor ou admin) + timestamp
+  - "(editado)" indicador quando `updatedAt !== createdAt`
+  - Emoji picker inline: 6 emojis (👍 ❤️ 😄 🎉 😮 😢), sem pacote externo
+  - Excluir usa ConfirmDialog existente
+
+### Verificacao (comentarios)
+- `npm run build` — 0 erros
+- Testado em producao: emoji picker, editar, excluir e reactions funcionam
