@@ -2078,3 +2078,20 @@ app/api/queue/
 - `components/dashboard-nav.tsx`
 - `components/board/board-client.tsx`
 - `components/workspace-header.tsx`
+
+---
+
+## 2026-04-13 — Hotfix: Build quebrado — import @radix-ui/react-dialog
+
+### Problema
+- Deploy falhou no Railway: `Module not found: Can't resolve '@radix-ui/react-dialog'`
+- `components/settings-modal.tsx` importava `@radix-ui/react-dialog` que nao esta instalado
+- O projeto usa shadcn v4 com `@base-ui/react`, nao Radix
+
+### Correcao
+- Reescrito `settings-modal.tsx` para usar `Dialog`, `DialogContent`, `DialogTitle`, `DialogDescription` do shadcn (`@/components/ui/dialog`)
+- Aplicada classe `.tv-modal` no DialogContent para manter tema dark consistente
+- Mesma funcionalidade preservada (toggle hideDeleteButtons + localStorage + evento)
+
+### Verificacao
+- `npm run build` — 0 erros
