@@ -257,6 +257,7 @@ export function KanbanList({ id, title, cards, workspaceMembers = [], onCreateCa
                 dueDate={card.dueDate}
                 isDueCompleted={card.isDueCompleted}
                 members={cardMemberInfos}
+                labels={card.labels}
                 onClick={() => onCardClick(card)}
               />
             );

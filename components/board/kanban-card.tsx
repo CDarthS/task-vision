@@ -16,7 +16,23 @@ interface KanbanCardProps {
   dueDate?: string | null;
   isDueCompleted?: boolean;
   members?: CardMemberInfo[];
+  labels?: { label: { id: string; name: string | null; color: string } }[];
   onClick?: () => void;
+}
+
+const LABEL_COLORS = [
+  { value: "red", bg: "bg-red-500" },
+  { value: "blue", bg: "bg-blue-500" },
+  { value: "green", bg: "bg-green-500" },
+  { value: "yellow", bg: "bg-yellow-400" },
+  { value: "purple", bg: "bg-purple-500" },
+  { value: "orange", bg: "bg-orange-500" },
+  { value: "pink", bg: "bg-pink-500" },
+  { value: "cyan", bg: "bg-cyan-500" },
+];
+
+function getLabelBg(color: string) {
+  return LABEL_COLORS.find((c) => c.value === color)?.bg || "bg-gray-500";
 }
 
 const avatarColors = [
@@ -30,7 +46,7 @@ const avatarColors = [
   "from-indigo-400 to-indigo-600",
 ];
 
-export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted, members = [], onClick }: KanbanCardProps) {
+export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted, members = [], labels = [], onClick }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -72,6 +88,23 @@ export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted,
           : "border-gray-200/80 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md active:scale-[0.98]"
         }`}
     >
+      {/* Etiquetas / Labels */}
+      {labels && labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1">
+          {labels.map(({ label }) => (
+            <span
+              key={label.id}
+              title={label.name || undefined}
+              className={`inline-block ${getLabelBg(label.color)} rounded-full shadow-sm ${
+                label.name ? "px-2 py-[2px] text-[10px] font-bold text-white max-w-full truncate" : "w-10 h-2"
+              }`}
+            >
+              {label.name}
+            </span>
+          ))}
+        </div>
+      )}
+      
       <p className="text-sm text-gray-800 leading-snug break-words">{title}</p>
       
       {/* Indicadores visuais + membros */}

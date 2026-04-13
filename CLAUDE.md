@@ -2046,3 +2046,19 @@ app/api/queue/
 
 ### Arquivos Modificados
 - `components/board/kanban-card.tsx`
+
+---
+
+## 2026-04-13 — Exibição de Etiquetas (Labels) no Board (Parte Externa)
+
+### Melhorias
+- As etiquetas que eram exibidas apenas no Modal (`card-detail-modal.tsx`) agora são visíveis no overview do board, passando no canto superior de cada cartão. Extensão da funcionalidade para atender estilo Trello.
+- **Tipagem Expandida:** Atualizado `lib/types.ts` (CardData) para abranger array de `labels`.
+- **Query no DB:** Atualizado `app/(dashboard)/boards/[id]/page.tsx` para plugar e mapear via Prisma `labels: { include: { label: true } }` na carga dos cartões iniciais.
+- **Renderização e Estética:** Atualizado `KanbanCardProps` e injetado `<div className="flex flex-wrap gap-1 mb-1">` em `kanban-card.tsx`. Se a label contém nome, ele é exibido e truncado num pill `text-[10px] px-2 rounded-full`. Caso contrário, vira uma tira clássica `w-10 h-2 rounded-full`. Mantido mapeamento das cores do banco para as classes do Tailwind.
+
+### Arquivos Modificados
+- `lib/types.ts`
+- `app/(dashboard)/boards/[id]/page.tsx`
+- `components/board/kanban-list.tsx`
+- `components/board/kanban-card.tsx`

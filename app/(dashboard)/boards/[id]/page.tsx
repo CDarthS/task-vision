@@ -32,6 +32,7 @@ export default async function BoardPage({
             include: {
               members: { select: { userId: true } },
               watchers: { select: { userId: true } },
+              labels: { include: { label: true } },
             },
           },
         },
@@ -84,6 +85,7 @@ export default async function BoardPage({
       updatedAt: list.updatedAt.toISOString(),
       cards: list.cards.map((card) => ({
         ...card,
+        labels: card.labels,
         members: card.members,
         watchers: card.watchers,
         dueDate: card.dueDate ? card.dueDate.toISOString() : null,

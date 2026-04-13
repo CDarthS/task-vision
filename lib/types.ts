@@ -26,6 +26,7 @@ export interface CardData {
   updatedAt: string;
   watchers?: { userId: string }[];
   members?: CardMemberData[];
+  labels?: { label: { id: string; name: string | null; color: string } }[];
 }
 
 export interface ListData {
