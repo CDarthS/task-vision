@@ -1395,7 +1395,7 @@ export function CardDetailModal({
       className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-12 overflow-y-auto"
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-[900px] mx-4 mb-8 animate-in fade-in zoom-in-95 duration-150 relative"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-6xl mx-4 mb-8 animate-in fade-in zoom-in-95 duration-150 relative"
         onDragEnter={(e) => {
           e.preventDefault();
           dragCounterRef.current++;
