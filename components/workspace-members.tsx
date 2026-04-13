@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface MemberItem {
@@ -30,6 +30,12 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
   };
   
   const [members, setMembers] = useState(() => sortMembers(initialMembers));
+
+  // Sincroniza estado local quando os dados do servidor mudam (ex: router.refresh apos editar perfil)
+  useEffect(() => {
+    setMembers(sortMembers(initialMembers));
+  }, [initialMembers]);
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);

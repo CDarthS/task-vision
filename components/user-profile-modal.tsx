@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -29,6 +29,11 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
   const [editName, setEditName] = useState(user.name);
   const [editPassword, setEditPassword] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sincroniza o nome quando o prop user muda (ex: apos router.refresh)
+  useEffect(() => {
+    setEditName(user.name);
+  }, [user.name]);
 
   // Resize and compress the image using HTML5 Canvas
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1707,3 +1707,39 @@ app/api/queue/
 
 ### Verificacao
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-13 — Bugfix: Sincronizacao de dados em Client Components apos editar perfil
+
+### Problema reportado
+- Mesmo problema do admin/users se repetia em outros Client Components
+- Quando um membro editava o nome no perfil, a lista de membros do workspace nao atualizava
+- O campo de edicao no modal do perfil tambem ficava desatualizado ao reabrir
+
+### Causa raiz (mesmo padrao)
+- `useState(initialValue)` em React so inicializa o estado na PRIMEIRA renderizacao
+- `router.refresh()` re-executa Server Components e envia props novos ao Client
+- Mas o Client Component ignora os props novos porque o `useState` ja foi inicializado
+
+### Auditoria completa de componentes afetados
+| Componente | Estado problematico | Status |
+|-----------|---------------------|--------|
+| `admin/users/page.tsx` | `fetchUsers()` independente | Corrigido antes (evento customizado) |
+| `workspace-members.tsx` | `useState(initialMembers)` | Corrigido agora (useEffect sync) |
+| `user-profile-modal.tsx` | `useState(user.name)` | Corrigido agora (useEffect sync) |
+| `board-client.tsx` | `useState(board.lists)` | Ja tinha useEffect sync ✅ |
+| `dashboard-nav.tsx` | Renderiza `user.name` direto (sem useState) | OK ✅ |
+
+### Correcoes aplicadas
+
+#### `components/workspace-members.tsx`
+- Adicionado `useEffect` que sincroniza `setMembers(sortMembers(initialMembers))` quando `initialMembers` muda
+- Garante que nomes/fotos atualizados aparecem na lista de membros do workspace
+
+#### `components/user-profile-modal.tsx`
+- Adicionado `useEffect` que sincroniza `setEditName(user.name)` quando `user.name` muda
+- Garante que o campo de edicao mostra o nome correto ao reabrir o modal
+
+### Verificacao
+- `npm run build` — 0 erros
