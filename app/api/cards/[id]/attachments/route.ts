@@ -6,7 +6,8 @@ import { randomUUID } from "crypto";
 
 // ─── Constantes de validacao ─────────────────────
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_MIME_TYPES = [
+// Prefixos permitidos — aceita codec suffixes (ex: audio/webm;codecs=opus)
+const ALLOWED_MIME_PREFIXES = [
   "image/jpeg",
   "image/png",
   "image/webp",
@@ -92,8 +93,9 @@ export async function POST(
         );
       }
 
-      // Validacao de tipo MIME
-      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      // Validacao de tipo MIME (aceita codec suffixes como audio/webm;codecs=opus)
+      const baseMime = file.type.split(";")[0].trim();
+      if (!ALLOWED_MIME_PREFIXES.includes(baseMime)) {
         return NextResponse.json(
           { error: `Tipo de arquivo nao permitido: ${file.type}` },
           { status: 400 }

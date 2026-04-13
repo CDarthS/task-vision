@@ -1820,3 +1820,42 @@ app/api/queue/
 ### Verificacao (Steps 6+7)
 - `npm run build` — 0 erros
 - `npm run lint` — 0 erros (4 warnings pre-existentes)
+
+---
+
+## 2026-04-13 — Bugfix: Audio rejeitado + layout baguncado no modal de anexos
+
+### Problemas reportados
+1. Gravar audio e enviar resultava em erro "Tipo de arquivo nao permitido: audio/webm;codecs=opus"
+2. Botoes de acao (Adicionar, Etiquetas, Checklist, Anexo, Mic) empilhavam verticalmente em telas estreitas
+3. Thumbnail de imagem quebrado (broken image icon)
+
+### Causa raiz
+
+**Bug 1 — MIME type rejeitado:**
+- O browser envia `audio/webm;codecs=opus` (com codec suffix)
+- A whitelist no backend fazia `ALLOWED_MIME_TYPES.includes(file.type)` — match exato
+- `audio/webm;codecs=opus` !== `audio/webm` → rejeitado
+
+**Bug 2 — Layout baguncado:**
+- Container dos botoes usava `flex flex-wrap` que causa empilhamento vertical em larguras estreitas
+- Botoes nao tinham `shrink-0` entao comprimiam ao inves de manter tamanho
+
+**Bug 3 — Thumbnail quebrado:**
+- `<img>` sem handler de erro exibia icone generico de imagem quebrada do browser
+
+### Correcoes
+
+#### `app/api/cards/[id]/attachments/route.ts`
+- Validacao MIME agora extrai base type: `file.type.split(";")[0].trim()`
+- `audio/webm;codecs=opus` → base `audio/webm` → match na whitelist
+- Renomeado `ALLOWED_MIME_TYPES` → `ALLOWED_MIME_PREFIXES` para clareza
+
+#### `components/board/card-detail-modal.tsx`
+- Container de botoes: `flex flex-wrap` → `flex flex-nowrap overflow-x-auto pb-1`
+- Todos os botoes: adicionado `shrink-0 whitespace-nowrap` para manter largura fixa
+- SVGs dos botoes: adicionado `shrink-0` para evitar compressao do icone
+- Thumbnail `<img>`: adicionado `onError` handler que esconde img e mostra fallback (icone de imagem)
+
+### Verificacao
+- `npm run build` — 0 erros
