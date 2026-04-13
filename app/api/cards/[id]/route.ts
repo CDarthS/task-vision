@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { notifyCardMembers } from "@/lib/notifications/create-notification";
 import { logActivity } from "@/lib/activity";
+import { cleanupCardAttachments } from "@/lib/attachments/cleanup";
 
 // GET /api/cards/[id] — buscar detalhes do card
 export async function GET(
@@ -260,6 +261,9 @@ export async function DELETE(
     if (!membership && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
     }
+
+    // Limpa arquivos S3 ANTES do cascade delete apagar os registros
+    await cleanupCardAttachments(id);
 
     await prisma.card.delete({ where: { id } });
 

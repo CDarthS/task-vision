@@ -269,6 +269,15 @@ export function CardDetailModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const MAX_RECORDING_SECONDS = 300; // 5 minutos
+
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const memberPickerRef = useRef<HTMLDivElement>(null);
@@ -444,6 +453,101 @@ export function CardDetailModal({
         setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
       }
     } catch { /* silently fail */ }
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      // Detectar MIME suportado (WebM Opus para Chrome/Firefox, MP4 para Safari)
+      let mimeType = "audio/webm;codecs=opus";
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/mp4";
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = ""; // Usar padrao do navegador
+        }
+      }
+
+      const options: MediaRecorderOptions = { audioBitsPerSecond: 32000 };
+      if (mimeType) options.mimeType = mimeType;
+
+      const recorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        const actualMime = recorder.mimeType || mimeType || "audio/webm";
+        const ext = actualMime.includes("mp4") ? "mp4" : "webm";
+        const blob = new Blob(audioChunksRef.current, { type: actualMime });
+        const file = new File([blob], `audio-${Date.now()}.${ext}`, { type: actualMime });
+        await processFile(file);
+        audioChunksRef.current = [];
+      };
+
+      recorder.start(1000); // Grava em chunks de 1s
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      // Timer de contagem
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => {
+          if (prev + 1 >= MAX_RECORDING_SECONDS) {
+            stopRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      alert("Erro ao acessar microfone. Verifique as permissoes do navegador.");
+      console.error("[Audio Recording]", err);
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
+  }
+
+  function cancelRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    setRecordingDuration(0);
+  }
+
+  function formatDuration(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
   }
 
   async function toggleMember(userId: string) {
@@ -694,6 +798,14 @@ export function CardDetailModal({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  // Cleanup recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   // Focus title input when editing
   useEffect(() => {
@@ -1756,6 +1868,16 @@ export function CardDetailModal({
                 </svg>
                 {uploadingAttachment ? uploadStatus : "Anexo"}
               </button>
+              <button
+                onClick={startRecording}
+                disabled={isRecording || uploadingAttachment}
+                title="Gravar audio"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 0 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                </svg>
+              </button>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1765,6 +1887,36 @@ export function CardDetailModal({
                 onChange={handleFileSelect}
               />
             </div>
+
+            {/* Recording bar */}
+            {isRecording && (
+              <div className="mb-4 flex items-center gap-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl animate-pulse-slow">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+                <span className="text-sm font-medium text-red-700">Gravando</span>
+                <span className="text-sm font-mono text-red-600">{formatDuration(recordingDuration)}</span>
+                <span className="text-xs text-red-400">/ {formatDuration(MAX_RECORDING_SECONDS)}</span>
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={stopRecording}
+                    className="flex items-center gap-1 px-3 py-1 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <rect x="6" y="6" width="12" height="12" rx="1" />
+                    </svg>
+                    Parar
+                  </button>
+                  <button
+                    onClick={cancelRecording}
+                    className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Label Picker Popover */}
             {showLabelPicker && (

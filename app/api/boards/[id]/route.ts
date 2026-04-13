@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { cleanupBoardAttachments } from "@/lib/attachments/cleanup";
 
 // GET /api/boards/[id] — buscar board com listas e cards
 export async function GET(
@@ -159,6 +160,9 @@ export async function DELETE(
     if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
     }
+
+    // Limpa arquivos S3 ANTES do cascade delete apagar os registros
+    await cleanupBoardAttachments(id);
 
     await prisma.board.delete({ where: { id } });
     return NextResponse.json({ success: true });

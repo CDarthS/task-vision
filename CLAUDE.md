@@ -1741,5 +1741,82 @@ app/api/queue/
 - Adicionado `useEffect` que sincroniza `setEditName(user.name)` quando `user.name` muda
 - Garante que o campo de edicao mostra o nome correto ao reabrir o modal
 
-### Verificacao
+### Verificacao (sync bugfix)
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-13 — Fase Anexos: Steps 6 + 7 — Gravacao de Audio + Garbage Collection
+
+### Contexto
+- Steps 1-5 ja commitados (infra S3, upload API, botao Anexo, thumbnails/audio player, drag-and-drop)
+- Step 6 tinha logica (state + funcoes) parcialmente escrita mas sem UI e sem commit
+- Step 7 (GC de arquivos S3) nao existia
+
+### Step 6: Gravacao de Audio — UI Completa
+
+#### `components/board/card-detail-modal.tsx`
+
+**Estado e funcoes (diff nao commitado anteriormente):**
+- `isRecording`, `recordingDuration`, `mediaRecorderRef`, `audioChunksRef`, `recordingTimerRef`, `mediaStreamRef`
+- `startRecording()`: getUserMedia, detecta MIME (webm/opus Chrome/Firefox, mp4 Safari), 32kbps
+- `stopRecording()`: para recorder → cria Blob → File → processFile()
+- `cancelRecording()`: para sem salvar, limpa chunks
+- `formatDuration()`: formata segundos em M:SS
+- Limite de 5 minutos (auto-stop via MAX_RECORDING_SECONDS)
+
+**UI adicionada:**
+- Botao microfone ao lado do botao "Anexo" com icone SVG
+- Desabilitado quando ja esta gravando ou fazendo upload
+- Barra de gravacao: fundo rosa (`bg-red-50`), dot vermelho pulsante (`animate-ping`), texto "Gravando", timer em `font-mono`, limite "/ 5:00"
+- Botoes "Parar" (vermelho, icone quadrado) e "Cancelar" (borda vermelha)
+- Cleanup on unmount: useEffect limpa timer e media stream se modal fechar durante gravacao
+
+### Step 7: Garbage Collection (BullMQ) — Limpeza S3
+
+#### Arquivos criados (3 novos)
+
+**`lib/queue/attachment-cleanup-queue.ts`:**
+- Fila "attachment-cleanup" no BullMQ
+- Job type: "delete-keys" — recebe lista de S3 keys para deletar
+- 3 tentativas com backoff exponencial (3s, 6s, 12s)
+- Auto-limpeza: completos apos 1h (max 50), falhados apos 24h
+- Helper: `enqueueS3Cleanup(keys, reason)` — enfileira exclusao
+
+**`lib/queue/attachment-cleanup-worker.ts`:**
+- Worker que processa jobs de exclusao S3
+- Itera cada key e chama `deleteFromS3(key)` individualmente
+- Concorrencia: 2, rate limit: 10 jobs/min
+- Lazy init via `ensureAttachmentCleanupWorkerRunning()`
+- `getAttachmentCleanupWorkerStatus()` para health check
+
+**`lib/attachments/cleanup.ts`:**
+- `cleanupCardAttachments(cardId)`: busca attachments do card (type != "link"), extrai S3 keys, enfileira exclusao
+- `cleanupBoardAttachments(boardId)`: busca attachments de todos os cards do board via join, enfileira exclusao
+- Fallback sincrono: se BullMQ/Redis indisponivel, deleta sincronamente via `Promise.allSettled`
+- Silencioso: erros nao bloqueiam a exclusao do card/board
+
+#### Arquivos modificados (3 existentes)
+
+**`app/api/cards/[id]/route.ts`:**
+- DELETE: adicionado `await cleanupCardAttachments(id)` ANTES do `prisma.card.delete()`
+- Garante que as S3 keys sao coletadas antes do cascade delete apagar os registros
+
+**`app/api/boards/[id]/route.ts`:**
+- DELETE: adicionado `await cleanupBoardAttachments(id)` ANTES do `prisma.board.delete()`
+
+**`app/api/queue/health/route.ts`:**
+- Adicionada fila "attachment-cleanup" ao health check
+- Mostra contagens de jobs (waiting, active, completed, failed, delayed)
+- Mostra status do worker (running/paused/stopped)
+
+### Decisoes Tecnicas
+- GC via BullMQ garante que a API DELETE retorna rapido (enfileira e sai)
+- Fallback sincrono se Redis cair — nunca perde arquivos orfaos
+- Worker lazy-init: so inicia quando primeiro job e enfileirado
+- cleanupCardAttachments filtra `type != "link"` — links nao tem arquivo S3
+- extractS3KeyFromUrl extrai a key do pathname da URL publica
+
+### Verificacao (Steps 6+7)
+- `npm run build` — 0 erros
+- `npm run lint` — 0 erros (4 warnings pre-existentes)

@@ -9,6 +9,8 @@ import { dueDateQueue } from "@/lib/queue/due-date-queue";
 import { getWorkerStatus } from "@/lib/queue/due-date-worker";
 import { notificationQueue } from "@/lib/queue/notification-queue";
 import { getNotificationWorkerStatus } from "@/lib/queue/notification-worker";
+import { attachmentCleanupQueue } from "@/lib/queue/attachment-cleanup-queue";
+import { getAttachmentCleanupWorkerStatus } from "@/lib/queue/attachment-cleanup-worker";
 
 export async function GET() {
   try {
@@ -23,14 +25,16 @@ export async function GET() {
     const redisVersion = versionMatch ? versionMatch[1] : "unknown";
 
     // 3. Status das filas
-    const [dueDateCounts, notifCounts] = await Promise.all([
+    const [dueDateCounts, notifCounts, cleanupCounts] = await Promise.all([
       dueDateQueue.getJobCounts("waiting", "active", "completed", "failed", "delayed"),
       notificationQueue.getJobCounts("waiting", "active", "completed", "failed", "delayed"),
+      attachmentCleanupQueue.getJobCounts("waiting", "active", "completed", "failed", "delayed"),
     ]);
 
     // 4. Status dos workers
     const dueDateWorkerStatus = getWorkerStatus();
     const notifWorkerStatus = getNotificationWorkerStatus();
+    const cleanupWorkerStatus = getAttachmentCleanupWorkerStatus();
 
     return NextResponse.json({
       status: "healthy",
@@ -54,10 +58,18 @@ export async function GET() {
           failed: notifCounts.failed,
           delayed: notifCounts.delayed,
         },
+        "attachment-cleanup": {
+          waiting: cleanupCounts.waiting,
+          active: cleanupCounts.active,
+          completed: cleanupCounts.completed,
+          failed: cleanupCounts.failed,
+          delayed: cleanupCounts.delayed,
+        },
       },
       workers: {
         "due-date": dueDateWorkerStatus,
         "notification-dispatch": notifWorkerStatus,
+        "attachment-cleanup": cleanupWorkerStatus,
       },
       timestamp: new Date().toISOString(),
     });
