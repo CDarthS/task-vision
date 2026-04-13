@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
-import { uploadToS3, deleteFromS3, getS3Key, extractS3KeyFromUrl } from "@/lib/s3";
+import { uploadToS3, deleteFromS3, getS3Key, extractS3KeyFromUrl, replaceWithPresignedUrl } from "@/lib/s3";
 import { randomUUID } from "crypto";
 
 // ─── Constantes de validacao ─────────────────────
@@ -52,7 +52,16 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ attachments });
+    // Substituir URLs do S3 por pre-signed URLs para arquivos (nao links)
+    const signedAttachments = await Promise.all(
+      attachments.map(async (a) => {
+        if (a.type === "link") return a;
+        const signedUrl = await replaceWithPresignedUrl(a.url);
+        return { ...a, url: signedUrl };
+      })
+    );
+
+    return NextResponse.json({ attachments: signedAttachments });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });

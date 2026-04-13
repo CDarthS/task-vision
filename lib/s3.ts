@@ -10,7 +10,9 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // ─── Configuracao ─────────────────────────────
 
@@ -104,11 +106,38 @@ export async function uploadToS3(
       Key: key,
       Body: body,
       ContentType: contentType,
-      ACL: "public-read",
     })
   );
 
   return getPublicUrl(key);
+}
+
+/**
+ * Gera uma URL pre-assinada para acessar um arquivo do S3.
+ * Valida por 1 hora (3600 segundos).
+ */
+export async function getPresignedUrl(key: string): Promise<string | null> {
+  if (!s3Client) return null;
+  try {
+    return await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
+      { expiresIn: 3600 }
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Substitui URLs do bucket por URLs pre-assinadas.
+ * Usado no GET de attachments para servir arquivos acessiveis.
+ */
+export async function replaceWithPresignedUrl(url: string): Promise<string> {
+  const key = extractS3KeyFromUrl(url);
+  if (!key) return url;
+  const signed = await getPresignedUrl(key);
+  return signed || url;
 }
 
 /**
