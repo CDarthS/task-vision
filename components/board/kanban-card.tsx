@@ -101,17 +101,17 @@ export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted,
               </span>
             )}
           </div>
-          {/* Avatares dos membros a direita (estilo Trello) */}
+          {/* Avatares dos membros a direita */}
           {members.length > 0 && (
-            <div className="flex -space-x-1.5 shrink-0">
-              {members.slice(0, 3).map((member) => {
+            <div className="flex -space-x-1.5 shrink-0 flex-wrap justify-end gap-y-1">
+              {members.map((member) => {
                 const colorIdx = member.name.charCodeAt(0) % avatarColors.length;
                 const initials = member.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
                 return (
                   <div
                     key={member.id}
                     title={member.name}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ring-2 ring-white overflow-hidden shadow-sm ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white ring-2 ring-white overflow-hidden shadow-sm ${
                       member.image ? "" : `bg-gradient-to-br ${avatarColors[colorIdx]}`
                     }`}
                   >
@@ -124,11 +124,6 @@ export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted,
                   </div>
                 );
               })}
-              {members.length > 3 && (
-                <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-[9px] font-bold text-gray-600 ring-2 ring-white">
-                  +{members.length - 3}
-                </div>
-              )}
             </div>
           )}
         </div>
