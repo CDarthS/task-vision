@@ -2033,3 +2033,16 @@ app/api/queue/
 ### Verificacao (comentarios)
 - `npm run build` — 0 erros
 - Testado em producao: emoji picker, editar, excluir e reactions funcionam
+
+---
+
+## 2026-04-13 — Ajuste Visual dos Cartões Kanban no Board
+
+### Melhorias
+- **Card Container:** Aplicado `flex flex-col gap-2` para permitir expansão e justificação fluida de itens com `mt-auto pt-1` do fundo — permite tamanho flutuante natural e alinhamento do rodapé sem comprometer bordas.
+- **Badge de Data:** Adicionado `whitespace-nowrap` e ajustes de cores (`bg-transparent text-gray-500` nativo, `bg-green-500 text-white` pra concluído) consertando a quebra bizarra que a altura gerava com a marcação de ✅.
+- **Avatares:** Mudados para `justify-end ml-2` com anel refinado, para que tudo fique "bonitinho" alinhado.
+- Refinados gaps e margins para dar um ar limpo que o Planka/Trello impulsionam.
+
+### Arquivos Modificados
+- `components/board/kanban-card.tsx`
