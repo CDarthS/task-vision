@@ -172,6 +172,7 @@ export default async function WorkspacePage({
         workspaceId={id}
         members={serializedMembers}
         ownerId={workspace.ownerId}
+        canManage={workspace.ownerId === user.id || user.role === "ADMIN"}
       />
     </div>
   );

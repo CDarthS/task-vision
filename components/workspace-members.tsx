@@ -18,9 +18,10 @@ interface WorkspaceMembersProps {
   workspaceId: string;
   members: MemberItem[];
   ownerId: string;
+  canManage?: boolean;
 }
 
-export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId }: WorkspaceMembersProps) {
+export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId, canManage = false }: WorkspaceMembersProps) {
   const router = useRouter();
   
   const sortMembers = (mList: MemberItem[]) => {
@@ -92,12 +93,14 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-white">Membros</h2>
-        <button
-          onClick={() => { setShowAddForm(!showAddForm); setError(""); }}
-          className="px-4 py-2 text-sm font-medium rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white transition-all cursor-pointer"
-        >
-          + Adicionar Membro
-        </button>
+        {canManage && (
+          <button
+            onClick={() => { setShowAddForm(!showAddForm); setError(""); }}
+            className="px-4 py-2 text-sm font-medium rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white transition-all cursor-pointer"
+          >
+            + Adicionar Membro
+          </button>
+        )}
       </div>
 
       {/* Formulario de adicionar membro */}
@@ -166,8 +169,8 @@ export function WorkspaceMembers({ workspaceId, members: initialMembers, ownerId
                   {member.role === "OWNER" ? "Admin" : member.role === "ADMIN" ? "Admin" : "Membro"}
                 </p>
               </div>
-              {/* Botao remover — nao mostra para o dono */}
-              {!isOwner && (
+              {/* Botao remover — nao mostra para o dono, só se canManage for true */}
+              {canManage && !isOwner && (
                 <div className="shrink-0">
                   {isConfirming ? (
                     <div className="flex items-center gap-1">
