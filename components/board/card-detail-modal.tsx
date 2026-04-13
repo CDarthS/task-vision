@@ -723,7 +723,7 @@ export function CardDetailModal({
   };
 
   const filteredMentions = [
-    { id: "all-card-members", username: "card", name: "Todos os membros neste cartão", image: null, isSpecial: true },
+    { id: "all-card-members", username: "card", name: "Todos os membros neste cartão", email: "", image: null, isSpecial: true },
     ...workspaceMembers.filter(m => 
       m.username?.toLowerCase().includes(mentionSearch) || 
       m.name.toLowerCase().includes(mentionSearch)
