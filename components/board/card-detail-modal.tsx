@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+
+const EmojiPicker = dynamic(() => import("@emoji-mart/react"), { ssr: false });
 
 // ─── InlineEdit: texto editavel com clique ─────────────────────────────
 function InlineEdit({
@@ -2922,7 +2925,7 @@ export function CardDetailModal({
                             itemInitials
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 relative">
                           <p className="text-sm font-semibold text-gray-700">{itemUserName}</p>
 
                           {isEditing ? (
@@ -2967,8 +2970,10 @@ export function CardDetailModal({
 
                           {/* Action links */}
                           <div className="flex items-center gap-1.5 mt-1">
-                            <button onClick={() => setShowEmojiPickerFor(showEmojiPickerFor === item.id ? null : item.id)} className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer" title="Reagir">
-                              😀
+                            <button onClick={() => setShowEmojiPickerFor(showEmojiPickerFor === item.id ? null : item.id)} className="text-gray-400 hover:text-gray-600 cursor-pointer p-0.5" title="Reagir">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+                              </svg>
                             </button>
                             {canEdit && (
                               <>
@@ -2984,14 +2989,19 @@ export function CardDetailModal({
                             </span>
                           </div>
 
-                          {/* Inline emoji picker */}
+                          {/* Emoji picker (emoji-mart) */}
                           {showEmojiPickerFor === item.id && (
-                            <div className="flex gap-1 mt-1 p-1.5 bg-white border border-gray-200 rounded-lg shadow-sm w-fit">
-                              {["👍", "❤️", "😄", "🎉", "😮", "😢"].map((emoji) => (
-                                <button key={emoji} onClick={() => toggleReaction(item.id, emoji)} className="text-lg hover:bg-gray-100 rounded p-1 cursor-pointer transition-colors">
-                                  {emoji}
-                                </button>
-                              ))}
+                            <div className="absolute z-50 mt-1">
+                              <EmojiPicker
+                                onEmojiSelect={(emoji: { native: string }) => toggleReaction(item.id, emoji.native)}
+                                onClickOutside={() => setShowEmojiPickerFor(null)}
+                                theme="light"
+                                locale="pt"
+                                previewPosition="none"
+                                skinTonePosition="none"
+                                maxFrequentRows={1}
+                                perLine={8}
+                              />
                             </div>
                           )}
                         </div>

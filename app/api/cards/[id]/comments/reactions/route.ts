@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 
-const ALLOWED_EMOJIS = ["👍", "❤️", "😄", "🎉", "😮", "😢"];
-
 // POST /api/cards/[id]/comments/reactions — toggle emoji reaction
 export async function POST(
   request: NextRequest,
@@ -14,12 +12,8 @@ export async function POST(
     const { id } = await params;
     const { commentId, emoji } = await request.json();
 
-    if (!commentId || !emoji) {
+    if (!commentId || !emoji || typeof emoji !== "string" || emoji.length > 8) {
       return NextResponse.json({ error: "commentId e emoji sao obrigatorios" }, { status: 400 });
-    }
-
-    if (!ALLOWED_EMOJIS.includes(emoji)) {
-      return NextResponse.json({ error: "Emoji nao permitido" }, { status: 400 });
     }
 
     // Verifica que o comentario pertence a este card
