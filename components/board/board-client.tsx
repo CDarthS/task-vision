@@ -489,6 +489,7 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
           userId={userId}
           boardId={board.id}
           workspaceId={board.workspaceId}
+          isAdmin={isGlobalAdmin}
           onClose={() => {
             setSelectedCard(null);
             router.replace(`/boards/${board.id}`, { scroll: false });

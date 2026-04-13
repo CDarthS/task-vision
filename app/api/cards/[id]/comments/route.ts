@@ -46,6 +46,9 @@ export async function GET(
       where: { cardId: id },
       include: {
         user: { select: { id: true, name: true, email: true, image: true } },
+        reactions: {
+          include: { user: { select: { id: true, name: true } } },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -180,6 +183,87 @@ export async function POST(
     });
 
     return NextResponse.json({ comment }, { status: 201 });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}
+
+// PATCH /api/cards/[id]/comments — editar comentario
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requireUser();
+    const { id } = await params;
+    const { commentId, text } = await request.json();
+
+    if (!commentId || !text?.trim()) {
+      return NextResponse.json({ error: "commentId e text sao obrigatorios" }, { status: 400 });
+    }
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: { card: { include: { list: { include: { board: { select: { workspaceId: true } } } } } } },
+    });
+
+    if (!comment || comment.cardId !== id) {
+      return NextResponse.json({ error: "Comentario nao encontrado" }, { status: 404 });
+    }
+
+    if (comment.userId !== user.id && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
+    }
+
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data: { text: text.trim() },
+      include: { user: { select: { id: true, name: true, email: true, image: true } } },
+    });
+
+    logActivity({ cardId: id, userId: user.id, type: "COMMENT_EDITED" });
+
+    return NextResponse.json({ comment: updated });
+  } catch (err) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}
+
+// DELETE /api/cards/[id]/comments — excluir comentario
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requireUser();
+    const { id } = await params;
+    const { commentId } = await request.json();
+
+    if (!commentId) {
+      return NextResponse.json({ error: "commentId e obrigatorio" }, { status: 400 });
+    }
+
+    const comment = await prisma.comment.findUnique({ where: { id: commentId } });
+
+    if (!comment || comment.cardId !== id) {
+      return NextResponse.json({ error: "Comentario nao encontrado" }, { status: 404 });
+    }
+
+    if (comment.userId !== user.id && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
+    }
+
+    await prisma.comment.delete({ where: { id: commentId } });
+
+    logActivity({ cardId: id, userId: user.id, type: "COMMENT_DELETED" });
+
+    return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {
       return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });

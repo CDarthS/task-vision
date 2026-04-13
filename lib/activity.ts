@@ -27,6 +27,8 @@ export const ACTIVITY_TYPES = {
   // Comentários (os comentários já existem como entidade separada,
   // mas registramos como atividade para o feed unificado)
   COMMENT_ADDED: "COMMENT_ADDED",
+  COMMENT_EDITED: "COMMENT_EDITED",
+  COMMENT_DELETED: "COMMENT_DELETED",
 } as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[keyof typeof ACTIVITY_TYPES];

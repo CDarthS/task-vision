@@ -54,6 +54,7 @@ model User {
   cardMemberships  CardMember[]      @relation("CardMemberUser")
   watchedCards     CardWatcher[]     @relation("CardWatcherUser")
   comments         Comment[]         @relation("CommentAuthor")
+  commentReactions CommentReaction[] @relation("CommentReactionUser")
   activities       Activity[]        @relation("ActivityUser")
   attachments      Attachment[]      @relation("AttachmentCreator")
   receivedNotifications    Notification[]  @relation("NotificationReceiver")
@@ -295,11 +296,26 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  card          Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  user          User           @relation("CommentAuthor", fields: [userId], references: [id])
+  card          Card               @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user          User               @relation("CommentAuthor", fields: [userId], references: [id])
   notifications Notification[]
+  reactions     CommentReaction[]
 
   @@index([cardId])
+}
+
+model CommentReaction {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation("CommentReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, emoji])
+  @@index([commentId])
 }
 
 // ─── Histórico de Atividade ──────────────────────────────

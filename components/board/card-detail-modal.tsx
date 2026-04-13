@@ -74,11 +74,20 @@ function InlineEdit({
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 
+interface CommentReactionRaw {
+  id: string;
+  emoji: string;
+  userId: string;
+  user: { id: string; name: string };
+}
+
 interface CommentData {
   id: string;
   text: string;
   createdAt: string;
+  updatedAt?: string;
   user: { id: string; name: string; email: string; image?: string | null };
+  reactions?: CommentReactionRaw[];
 }
 
 interface ChecklistItemData {
@@ -126,6 +135,7 @@ interface CardDetailModalProps {
   onClose: () => void;
   onUpdate: (card: CardData) => void;
   onDelete: (cardId: string) => void;
+  isAdmin?: boolean;
 }
 
 const LABEL_COLORS = [
@@ -153,6 +163,7 @@ export function CardDetailModal({
   onClose,
   onUpdate,
   onDelete,
+  isAdmin = false,
 }: CardDetailModalProps) {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || "");
@@ -182,7 +193,10 @@ export function CardDetailModal({
   const [commentText, setCommentText] = useState("");
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
-  
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
+  const [showEmojiPickerFor, setShowEmojiPickerFor] = useState<string | null>(null);
+
   // Mentions state
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
@@ -1005,6 +1019,61 @@ export function CardDetailModal({
     } finally {
       setPostingComment(false);
     }
+  }
+
+  async function editComment(commentId: string, newText: string) {
+    if (!newText.trim()) return;
+    try {
+      const res = await fetch(`/api/cards/${card.id}/comments`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentId, text: newText.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, text: data.comment.text, updatedAt: data.comment.updatedAt } : c));
+        setEditingCommentId(null);
+      }
+    } catch { /* silently fail */ }
+  }
+
+  async function deleteComment(commentId: string) {
+    try {
+      const res = await fetch(`/api/cards/${card.id}/comments`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentId }),
+      });
+      if (res.ok) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+      }
+    } catch { /* silently fail */ }
+  }
+
+  async function toggleReaction(commentId: string, emoji: string) {
+    // Optimistic update
+    setComments((prev) => prev.map((c) => {
+      if (c.id !== commentId) return c;
+      const reactions = c.reactions || [];
+      const existing = reactions.find((r) => r.emoji === emoji && r.userId === userId);
+      if (existing) {
+        return { ...c, reactions: reactions.filter((r) => r.id !== existing.id) };
+      } else {
+        return { ...c, reactions: [...reactions, { id: `temp-${Date.now()}`, emoji, userId, user: { id: userId, name: userName } }] };
+      }
+    }));
+    setShowEmojiPickerFor(null);
+    try {
+      const res = await fetch(`/api/cards/${card.id}/comments/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentId, emoji }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, reactions: data.reactions } : c));
+      }
+    } catch { /* revert on error by reloading */ loadComments(); }
   }
 
   // Traduz tipo de atividade para texto legivel
@@ -2757,6 +2826,8 @@ export function CardDetailModal({
                   user: { id: string; name: string; email: string; image?: string | null } | null;
                   // Comment fields
                   text?: string;
+                  updatedAt?: string;
+                  reactions?: CommentReactionRaw[];
                   // Activity fields
                   type?: string;
                   data?: Record<string, string>;
@@ -2772,6 +2843,8 @@ export function CardDetailModal({
                     createdAt: c.createdAt,
                     user: c.user,
                     text: c.text,
+                    updatedAt: c.updatedAt,
+                    reactions: c.reactions,
                   })
                 );
 
@@ -2819,6 +2892,26 @@ export function CardDetailModal({
                   const colorIdx = itemUserName.charCodeAt(0) % avatarColors.length;
 
                   if (item.kind === "comment") {
+                    const isOwner = item.user?.id === userId;
+                    const canEdit = isOwner || isAdmin;
+                    const isEditing = editingCommentId === item.id;
+
+                    // Group reactions by emoji
+                    const groupedReactions: { emoji: string; count: number; reacted: boolean; users: string[] }[] = [];
+                    if (item.reactions?.length) {
+                      const map = new Map<string, { count: number; reacted: boolean; users: string[] }>();
+                      for (const r of item.reactions) {
+                        const existing = map.get(r.emoji) || { count: 0, reacted: false, users: [] };
+                        existing.count++;
+                        if (r.userId === userId) existing.reacted = true;
+                        existing.users.push(r.user.name);
+                        map.set(r.emoji, existing);
+                      }
+                      for (const [emoji, data] of map) {
+                        groupedReactions.push({ emoji, ...data });
+                      }
+                    }
+
                     return (
                       <div key={item.id} className="flex items-start gap-3">
                         <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${avatarColors[colorIdx]} flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 overflow-hidden shadow-sm`}>
@@ -2831,12 +2924,76 @@ export function CardDetailModal({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-700">{itemUserName}</p>
-                          <div className="mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700 break-words">
-                            {renderTextWithMentions(item.text)}
+
+                          {isEditing ? (
+                            <div className="mt-1">
+                              <textarea
+                                value={editCommentText}
+                                onChange={(e) => setEditCommentText(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-violet-300 rounded-lg text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                rows={2}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); editComment(item.id, editCommentText); }
+                                  if (e.key === "Escape") setEditingCommentId(null);
+                                }}
+                              />
+                              <div className="flex gap-1.5 mt-1">
+                                <button onClick={() => editComment(item.id, editCommentText)} className="px-2.5 py-1 text-xs font-medium text-white bg-violet-600 rounded-md hover:bg-violet-700 cursor-pointer">Salvar</button>
+                                <button onClick={() => setEditingCommentId(null)} className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-700 cursor-pointer">Cancelar</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700 break-words">
+                              {renderTextWithMentions(item.text)}
+                            </div>
+                          )}
+
+                          {/* Reaction pills */}
+                          {groupedReactions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {groupedReactions.map((r) => (
+                                <button
+                                  key={r.emoji}
+                                  onClick={() => toggleReaction(item.id, r.emoji)}
+                                  title={r.users.join(", ")}
+                                  className={`text-xs px-1.5 py-0.5 rounded-full border cursor-pointer transition-colors ${r.reacted ? "bg-violet-50 border-violet-300 text-violet-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"}`}
+                                >
+                                  {r.emoji} {r.count}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Action links */}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <button onClick={() => setShowEmojiPickerFor(showEmojiPickerFor === item.id ? null : item.id)} className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer" title="Reagir">
+                              😀
+                            </button>
+                            {canEdit && (
+                              <>
+                                <span className="text-gray-300">·</span>
+                                <button onClick={() => { setEditingCommentId(item.id); setEditCommentText(item.text || ""); }} className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Editar</button>
+                                <span className="text-gray-300">·</span>
+                                <button onClick={() => setConfirmAction({ title: "Excluir comentario?", description: "Este comentario sera removido permanentemente.", label: "Excluir", action: async () => { await deleteComment(item.id); } })} className="text-xs text-gray-400 hover:text-red-500 cursor-pointer">Excluir</button>
+                              </>
+                            )}
+                            <span className="text-xs text-gray-400 ml-auto">
+                              {formatRelativeDate(item.createdAt)}
+                              {item.updatedAt && item.updatedAt !== item.createdAt && <span className="italic ml-1">(editado)</span>}
+                            </span>
                           </div>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {formatRelativeDate(item.createdAt)}
-                          </p>
+
+                          {/* Inline emoji picker */}
+                          {showEmojiPickerFor === item.id && (
+                            <div className="flex gap-1 mt-1 p-1.5 bg-white border border-gray-200 rounded-lg shadow-sm w-fit">
+                              {["👍", "❤️", "😄", "🎉", "😮", "😢"].map((emoji) => (
+                                <button key={emoji} onClick={() => toggleReaction(item.id, emoji)} className="text-lg hover:bg-gray-100 rounded p-1 cursor-pointer transition-colors">
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
