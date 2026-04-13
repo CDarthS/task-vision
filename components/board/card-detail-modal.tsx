@@ -722,10 +722,10 @@ export function CardDetailModal({
     }
   };
 
-  const filteredMentions = [
+  const filteredMentions: MemberData[] = [
     { id: "all-card-members", username: "card", name: "Todos os membros neste cartão", email: "", image: null, isSpecial: true },
-    ...workspaceMembers.filter(m => 
-      m.username?.toLowerCase().includes(mentionSearch) || 
+    ...workspaceMembers.filter(m =>
+      m.username?.toLowerCase().includes(mentionSearch) ||
       m.name.toLowerCase().includes(mentionSearch)
     )
   ];
