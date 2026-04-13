@@ -100,6 +100,7 @@ export default async function BoardPage({
       userId={user.id}
       initialCardId={cardId}
       workspaceMembers={serializedMembers}
+      isGlobalAdmin={user.role === "ADMIN"}
     />
   );
 }

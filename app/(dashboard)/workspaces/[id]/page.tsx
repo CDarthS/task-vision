@@ -105,6 +105,7 @@ export default async function WorkspacePage({
         boardCount={workspace._count.boards}
         memberCount={workspace._count.members}
         ownerName={workspace.owner.name}
+        canDelete={workspace.ownerId === user.id || user.role === "ADMIN"}
       />
 
       {/* Secao de Boards */}

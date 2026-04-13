@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EditableTitle } from "@/components/editable-title";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface WorkspaceHeaderProps {
   workspaceId: string;
@@ -11,6 +13,7 @@ interface WorkspaceHeaderProps {
   boardCount: number;
   memberCount: number;
   ownerName: string;
+  canDelete?: boolean;
 }
 
 export function WorkspaceHeader({
@@ -21,8 +24,10 @@ export function WorkspaceHeader({
   boardCount,
   memberCount,
   ownerName,
+  canDelete = false,
 }: WorkspaceHeaderProps) {
   const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function handleSaveName(newName: string) {
     const res = await fetch(`/api/workspaces/${workspaceId}`, {
@@ -38,6 +43,18 @@ export function WorkspaceHeader({
     router.refresh();
   }
 
+  async function handleDelete() {
+    const res = await fetch(`/api/workspaces/${workspaceId}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      throw new Error("Falha ao deletar workspace");
+    }
+
+    router.push("/");
+  }
+
   return (
     <div className="relative rounded-2xl overflow-hidden mb-8">
       {/* Fundo com gradiente */}
@@ -48,14 +65,15 @@ export function WorkspaceHeader({
       <div className="absolute inset-0 bg-black/30" />
 
       {/* Conteudo */}
-      <div className="relative z-10 p-8">
-        <EditableTitle
-          value={name}
-          onSave={handleSaveName}
-          tag="h1"
-          className="text-3xl font-bold text-white mb-2"
-          inputClassName="text-3xl font-bold text-white w-full max-w-md"
-        />
+      <div className="relative z-10 p-8 flex justify-between items-start">
+        <div className="flex-1">
+          <EditableTitle
+            value={name}
+            onSave={handleSaveName}
+            tag="h1"
+            className="text-3xl font-bold text-white mb-2"
+            inputClassName="text-3xl font-bold text-white w-full max-w-md"
+          />
         {description && (
           <p className="text-white/70 text-sm max-w-2xl mb-4">
             {description}
@@ -103,6 +121,28 @@ export function WorkspaceHeader({
           </span>
         </div>
       </div>
+
+        {canDelete && (
+          <button
+            onClick={() => setDeleteOpen(true)}
+            className="ml-4 shrink-0 text-red-300 hover:text-red-400 hover:bg-black/20 p-2 rounded-lg transition-colors"
+            title="Deletar Workspace"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={handleDelete}
+        title="Deletar Workspace?"
+        description="Esta acao e permanente. O workspace e todos os seus boards e cards serao removidos."
+        confirmLabel="Deletar workspace"
+      />
     </div>
   );
 }
