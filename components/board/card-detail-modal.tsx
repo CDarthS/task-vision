@@ -265,7 +265,9 @@ export function CardDetailModal({
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -1207,7 +1209,45 @@ export function CardDetailModal({
       onClick={handleOverlayClick}
       className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-12 overflow-y-auto"
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[900px] mx-4 mb-8 animate-in fade-in zoom-in-95 duration-150">
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-[900px] mx-4 mb-8 animate-in fade-in zoom-in-95 duration-150 relative"
+        onDragEnter={(e) => {
+          e.preventDefault();
+          dragCounterRef.current++;
+          if (e.dataTransfer.types.includes("Files")) setIsDraggingFile(true);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          dragCounterRef.current--;
+          if (dragCounterRef.current === 0) setIsDraggingFile(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          dragCounterRef.current = 0;
+          setIsDraggingFile(false);
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+              processFile(files[i]);
+            }
+          }
+        }}
+      >
+        {/* Drag-and-drop overlay */}
+        {isDraggingFile && (
+          <div className="absolute inset-0 z-[60] rounded-xl bg-violet-50/90 border-2 border-dashed border-violet-400 flex flex-col items-center justify-center pointer-events-none">
+            <svg className="w-12 h-12 text-violet-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+            </svg>
+            <p className="text-lg font-semibold text-violet-700">Solte o arquivo para anexar</p>
+            <p className="text-sm text-violet-500 mt-1">Imagens e audios aceitos</p>
+          </div>
+        )}
+
         {/* Barra de topo */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
           <div className="flex items-center gap-2">
