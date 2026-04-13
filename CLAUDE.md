@@ -1676,3 +1676,34 @@ app/api/queue/
 ### Correcao em `components/board/card-detail-modal.tsx`
 - Classe CSS do dropdown: `bottom-full mb-1` → `top-full mt-1`
 - Mudanca de 1 linha, apenas posicionamento CSS
+
+---
+
+## 2026-04-13 — Bugfix: Perfil atualizado nao reflete na tabela admin
+
+### Problema reportado
+- Usuario mudava o nome no modal "Meu Perfil" e salvava com sucesso
+- Porem a tabela "Gerenciar Usuarios" continuava mostrando o nome antigo
+- So atualizava apos recarregar a pagina manualmente (F5)
+
+### Causa raiz
+- `UserProfileModal` chamava `router.refresh()` apos salvar
+- `router.refresh()` re-executa Server Components mas NAO forca Client Components a re-executar seus useEffect
+- A pagina admin/users e um Client Component (`"use client"`) que busca dados com `fetchUsers()` em useEffect
+- O useEffect so roda quando dependencias mudam — `router.refresh()` nao muda as dependencias
+
+### Correcao — Evento customizado `user-profile-updated`
+
+#### `components/user-profile-modal.tsx`
+- Apos salvar nome/senha: `window.dispatchEvent(new Event("user-profile-updated"))`
+- Apos trocar foto: mesmo dispatch
+- Apos remover foto: mesmo dispatch
+- 3 pontos de dispatch (1 por tipo de save)
+
+#### `app/(dashboard)/admin/users/page.tsx`
+- Novo useEffect que escuta `window.addEventListener("user-profile-updated", ...)`
+- Quando evento e recebido: chama `fetchUsers()` para re-buscar lista atualizada
+- Cleanup: `removeEventListener` no return do useEffect
+
+### Verificacao
+- `npm run build` — 0 erros

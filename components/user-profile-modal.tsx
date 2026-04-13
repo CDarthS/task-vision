@@ -88,8 +88,9 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
           });
 
           if (!res.ok) throw new Error("Falha ao salvar a imagem.");
-          
-          router.refresh(); // Refresh the page to load the new image
+
+          router.refresh();
+          window.dispatchEvent(new Event("user-profile-updated"));
         } catch {
           setError("Erro ao se conectar com o servidor.");
         } finally {
@@ -111,6 +112,7 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
       });
       if (!res.ok) throw new Error("Falha ao remover.");
       router.refresh();
+      window.dispatchEvent(new Event("user-profile-updated"));
     } catch {
       setError("Erro ao remover a imagem.");
     } finally {
@@ -145,6 +147,8 @@ export function UserProfileModal({ user, open, onOpenChange }: UserProfileModalP
       setSuccess("Perfil atualizado com sucesso!");
       setEditPassword(""); // clear password field
       router.refresh();
+      // Dispara evento global para que outras paginas (ex: admin/users) re-busquem dados
+      window.dispatchEvent(new Event("user-profile-updated"));
     } catch {
       setError("Erro ao salvar as alteracoes.");
     } finally {

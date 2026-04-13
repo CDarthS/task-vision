@@ -102,6 +102,13 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
+  // Re-busca usuarios quando o perfil e atualizado via modal "Meu Perfil"
+  useEffect(() => {
+    const handleProfileUpdate = () => fetchUsers();
+    window.addEventListener("user-profile-updated", handleProfileUpdate);
+    return () => window.removeEventListener("user-profile-updated", handleProfileUpdate);
+  }, [fetchUsers]);
+
   // --- Criar usuário ---
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
