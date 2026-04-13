@@ -79,8 +79,19 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
   // Delete Board State
   const [deleteBoardOpen, setDeleteBoardOpen] = useState(false);
   const [deletingBoard, setDeletingBoard] = useState(false);
+  const [hideDeletes, setHideDeletes] = useState(false);
 
-  const canDeleteBoard = board.workspace?.ownerId === userId || isGlobalAdmin;
+  useEffect(() => {
+    const handleSettingsChanged = () => {
+      const val = localStorage.getItem("hideDeleteButtons");
+      setHideDeletes(val === "true");
+    };
+    handleSettingsChanged();
+    window.addEventListener("settingsChanged", handleSettingsChanged);
+    return () => window.removeEventListener("settingsChanged", handleSettingsChanged);
+  }, []);
+
+  const canDeleteBoard = (board.workspace?.ownerId === userId || isGlobalAdmin) && !hideDeletes;
 
   async function handleDeleteBoard() {
     setDeletingBoard(true);

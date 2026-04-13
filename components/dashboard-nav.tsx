@@ -13,12 +13,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { NotificationBell } from "@/components/notification-bell";
 import { UserProfileModal } from "@/components/user-profile-modal";
+import { SettingsModal } from "@/components/settings-modal";
 import type { SafeUser } from "@/lib/auth/get-current-user";
 import { useState } from "react";
 
 export function DashboardNav({ user }: { user: SafeUser }) {
   const router = useRouter();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "DELETE" });
@@ -108,13 +110,20 @@ export function DashboardNav({ user }: { user: SafeUser }) {
                   {roleLabels[user.role]}
                 </Badge>
               </div>
-              <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
                 onClick={() => setProfileModalOpen(true)}
                 className="focus:bg-white/10 cursor-pointer"
               >
                 Meu Perfil
               </DropdownMenuItem>
+              {user.role === "ADMIN" && (
+                <DropdownMenuItem
+                  onClick={() => setSettingsModalOpen(true)}
+                  className="focus:bg-white/10 cursor-pointer"
+                >
+                  Configurações
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
                 onClick={handleLogout}
@@ -137,6 +146,13 @@ export function DashboardNav({ user }: { user: SafeUser }) {
         open={profileModalOpen}
         onOpenChange={setProfileModalOpen}
       />
+      
+      {user.role === "ADMIN" && (
+        <SettingsModal 
+          open={settingsModalOpen}
+          onOpenChange={setSettingsModalOpen}
+        />
+      )}
     </header>
   );
 }

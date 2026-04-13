@@ -2062,3 +2062,19 @@ app/api/queue/
 - `app/(dashboard)/boards/[id]/page.tsx`
 - `components/board/kanban-list.tsx`
 - `components/board/kanban-card.tsx`
+
+---
+
+## 2026-04-13 — Configurações Globais: Ocultar Botões de Exclusão
+
+### Melhorias
+- Criação do modal `SettingsModal` com uma opção de _toggle_ para ocultar as lixeiras do Board e do Workspace.
+- O botão "Configurações" foi adicionado no menu dropdown de Perfil do `DashboardNav`, visível **apenas para usuários com role ADMIN**.
+- O state da configuração (preferência ui local) é salva diremamente no `localStorage` via chave `hideDeleteButtons` e sincronizada ativamente por despachos de eventos `window.dispatchEvent(new Event("settingsChanged"))`.
+- Componentes sensíveis como `WorkspaceHeader` e `BoardClient` agora escutam esse evento via `useEffect` e re-renderizam para ocultar permanentemente os botões de lixeiras sob demanda, oferecendo segurança contra cliques acidentais e limpando a área de trabalho.
+
+### Arquivos Modificados
+- `components/settings-modal.tsx` (NOVO)
+- `components/dashboard-nav.tsx`
+- `components/board/board-client.tsx`
+- `components/workspace-header.tsx`

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditableTitle } from "@/components/editable-title";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -28,6 +28,17 @@ export function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [hideDeletes, setHideDeletes] = useState(false);
+
+  useEffect(() => {
+    const handleSettingsChanged = () => {
+      const val = localStorage.getItem("hideDeleteButtons");
+      setHideDeletes(val === "true");
+    };
+    handleSettingsChanged();
+    window.addEventListener("settingsChanged", handleSettingsChanged);
+    return () => window.removeEventListener("settingsChanged", handleSettingsChanged);
+  }, []);
 
   async function handleSaveName(newName: string) {
     const res = await fetch(`/api/workspaces/${workspaceId}`, {
@@ -122,7 +133,7 @@ export function WorkspaceHeader({
         </div>
       </div>
 
-        {canDelete && (
+        {canDelete && !hideDeletes && (
           <button
             onClick={() => setDeleteOpen(true)}
             className="ml-4 shrink-0 text-red-300 hover:text-red-400 hover:bg-black/20 p-2 rounded-lg transition-colors"
