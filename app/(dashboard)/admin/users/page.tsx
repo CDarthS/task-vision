@@ -277,7 +277,7 @@ export default function AdminUsersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Username (opcional)</Label>
+                <Label className="text-slate-300">Username *</Label>
                 <Input
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
@@ -372,7 +372,7 @@ export default function AdminUsersPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300">Username (opcional)</Label>
+              <Label className="text-slate-300">Username *</Label>
               <Input
                 value={editUsername}
                 onChange={(e) => setEditUsername(e.target.value)}
