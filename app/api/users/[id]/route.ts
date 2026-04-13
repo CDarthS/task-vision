@@ -62,8 +62,12 @@ export async function PATCH(
 
     // Campos que qualquer usuario pode alterar no proprio perfil
     if (body.name !== undefined) data.name = body.name.trim();
-    if (body.username !== undefined)
-      data.username = body.username?.toLowerCase().trim() || null;
+    if (body.username !== undefined) {
+      if (!body.username.trim()) {
+        return NextResponse.json({ error: "Username não pode ser vazio" }, { status: 400 });
+      }
+      data.username = body.username.toLowerCase().trim();
+    }
 
     // Campos que apenas admin pode alterar
     if (isAdmin) {

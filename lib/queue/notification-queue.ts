@@ -28,7 +28,8 @@ export interface NotifySingleJobData {
 // Job para notificar todos os membros/watchers de um card
 export interface NotifyCardMembersJobData {
   kind: "notify-card-members";
-  excludeUserId: string;
+  excludeUserId?: string;
+  excludeUserIds?: string[];
   cardId: string;
   boardId: string;
   type: string;

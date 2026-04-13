@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, name, username, role } = body;
 
-    if (!email || !password || !name) {
+    if (!email || !password || !name || !username) {
       return NextResponse.json(
-        { error: "Email, senha e nome são obrigatórios" },
+        { error: "Email, senha, nome e username são obrigatórios" },
         { status: 400 }
       );
     }
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       where: {
         OR: [
           { email: email.toLowerCase().trim() },
-          ...(username ? [{ username: username.toLowerCase().trim() }] : []),
+          { username: username.toLowerCase().trim() },
         ],
       },
     });
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         email: email.toLowerCase().trim(),
         password: hashedPassword,
         name: name.trim(),
-        username: username?.toLowerCase().trim() || null,
+        username: username.toLowerCase().trim(),
         role: role || "MEMBER",
       },
       select: {

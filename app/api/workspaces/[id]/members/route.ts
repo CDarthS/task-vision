@@ -24,7 +24,7 @@ export async function GET(
       where: { workspaceId: id },
       include: {
         user: {
-          select: { id: true, name: true, email: true, image: true },
+          select: { id: true, name: true, email: true, username: true, image: true },
         },
       },
       orderBy: { joinedAt: "asc" },
@@ -71,7 +71,7 @@ export async function POST(
     // Busca o usuario pelo email (incluindo role global para herança de papel)
     const targetUser = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, name: true, email: true, image: true, isDeactivated: true, role: true },
+      select: { id: true, name: true, username: true, email: true, image: true, isDeactivated: true, role: true },
     });
 
     if (!targetUser) {
@@ -103,7 +103,7 @@ export async function POST(
       },
       include: {
         user: {
-          select: { id: true, name: true, email: true, image: true },
+          select: { id: true, name: true, username: true, email: true, image: true },
         },
       },
     });

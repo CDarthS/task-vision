@@ -80,14 +80,15 @@ export async function createNotification(input: CreateNotificationInput) {
  * Tenta enfileirar no BullMQ. Se falhar, faz fallback sincrono.
  */
 export async function notifyCardMembers(params: {
-  excludeUserId: string;
+  excludeUserId?: string;
+  excludeUserIds?: string[];
   cardId: string;
   boardId: string;
   type: NotificationType;
   data?: Record<string, string>;
   commentId?: string;
 }) {
-  const { excludeUserId, cardId, boardId, type, data, commentId } = params;
+  const { excludeUserId, excludeUserIds = [], cardId, boardId, type, data, commentId } = params;
 
   // Tenta enfileirar no BullMQ
   try {
@@ -97,6 +98,7 @@ export async function notifyCardMembers(params: {
       {
         kind: "notify-card-members" as const,
         excludeUserId,
+        excludeUserIds,
         cardId,
         boardId,
         type,
@@ -122,7 +124,10 @@ export async function notifyCardMembers(params: {
       ...cardMembers.map((m) => m.userId),
       ...cardWatchers.map((w) => w.userId),
     ]);
-    combinedIds.delete(excludeUserId);
+    const excludes = new Set([...excludeUserIds, ...(excludeUserId ? [excludeUserId] : [])]);
+    for (const ex of excludes) {
+      combinedIds.delete(ex);
+    }
 
     const recipientIds = Array.from(combinedIds);
     if (recipientIds.length === 0) return [];

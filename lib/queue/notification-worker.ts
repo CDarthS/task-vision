@@ -63,12 +63,15 @@ async function processNotifyCardMembers(data: NotifyCardMembersJobData) {
     }),
   ]);
 
-  // Une e remove o autor da acao
+  // Une e remove o autor da acao e usuarios ignorados extra
   const combinedIds = new Set([
     ...cardMembers.map((m) => m.userId),
     ...cardWatchers.map((w) => w.userId),
   ]);
-  combinedIds.delete(data.excludeUserId);
+  const excludes = new Set([...(data.excludeUserIds || []), ...(data.excludeUserId ? [data.excludeUserId] : [])]);
+  for (const ex of excludes) {
+    combinedIds.delete(ex);
+  }
 
   const recipientIds = Array.from(combinedIds);
 

@@ -22,6 +22,7 @@ enum UserRole {
 
 enum NotificationType {
   COMMENT_ADDED           // Alguém comentou num card onde o user é membro
+  USER_MENTIONED          // Usuário foi citado diretamente com @username ou @card
   MEMBER_ADDED            // O user foi adicionado como membro de um card
   DUE_DATE_SOON           // Card com due date vencendo em 24h
   DUE_DATE_OVERDUE        // Card com due date vencido
@@ -35,7 +36,7 @@ enum NotificationType {
 model User {
   id                String    @id @default(cuid())
   email             String    @unique
-  username          String?   @unique
+  username          String    @unique
   password          String    // bcrypt hash
   name              String
   role              UserRole  @default(MEMBER)
