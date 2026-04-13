@@ -398,6 +398,7 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
                 id={list.id}
                 title={list.title}
                 cards={list.cards}
+                workspaceMembers={workspaceMembers}
                 onCreateCard={(title) => handleCreateCard(list.id, title)}
                 onCardClick={(card) => handleCardClick(card, list.title)}
                 onUpdateTitle={(newTitle) => handleUpdateListTitle(list.id, newTitle)}

@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { KanbanCard } from "./kanban-card";
-import type { CardData } from "@/lib/types";
+import type { CardData, WorkspaceMemberInfo } from "@/lib/types";
 
 interface KanbanListProps {
   id: string;
   title: string;
   cards: CardData[];
+  workspaceMembers?: WorkspaceMemberInfo[];
   onCreateCard: (title: string) => void;
   onCardClick: (card: CardData) => void;
   onUpdateTitle: (title: string) => void;
@@ -45,7 +46,7 @@ function ExpandIcon() {
   );
 }
 
-export function KanbanList({ id, title, cards, onCreateCard, onCardClick, onUpdateTitle }: KanbanListProps) {
+export function KanbanList({ id, title, cards, workspaceMembers = [], onCreateCard, onCardClick, onUpdateTitle }: KanbanListProps) {
   const [addingCard, setAddingCard] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
 
@@ -242,17 +243,24 @@ export function KanbanList({ id, title, cards, onCreateCard, onCardClick, onUpda
         style={{ minHeight: "2rem" }}
       >
         <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          {cards.map((card) => (
-            <KanbanCard
-              key={card.id}
-              id={card.id}
-              title={card.title}
-              hasDescription={!!card.description}
-              dueDate={card.dueDate}
-              isDueCompleted={card.isDueCompleted}
-              onClick={() => onCardClick(card)}
-            />
-          ))}
+          {cards.map((card) => {
+            // Resolve member info from workspace members
+            const cardMemberInfos = (card.members || [])
+              .map((m) => workspaceMembers.find((wm) => wm.id === m.userId))
+              .filter((m): m is WorkspaceMemberInfo => !!m);
+            return (
+              <KanbanCard
+                key={card.id}
+                id={card.id}
+                title={card.title}
+                hasDescription={!!card.description}
+                dueDate={card.dueDate}
+                isDueCompleted={card.isDueCompleted}
+                members={cardMemberInfos}
+                onClick={() => onCardClick(card)}
+              />
+            );
+          })}
         </SortableContext>
 
         {/* Input de novo card inline */}
