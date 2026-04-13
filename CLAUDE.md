@@ -1892,3 +1892,37 @@ app/api/queue/
 
 ### Verificacao (Anexos colapsavel)
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-13 — Bugfix: Ordem Anexos vs Checklists + S3 AccessDenied (pre-signed URLs)
+
+### Problema 1: Anexos desciam ao criar checklist
+- Usuario queria Anexos fixo abaixo de Descricao, nao abaixo de Checklists
+- Correcao: movido bloco de Anexos para ANTES do bloco de Checklists
+- Ordem final: Botoes → Membros/Data → Descricao → **Anexos** → Checklists
+
+### Problema 2: Audio nao tocava e imagem nao abria
+- Erro S3: `AccessDenied` ao acessar URLs do bucket diretamente
+- Causa: Railway/Tigris nao suporta `ACL: "public-read"` nem `PutBucketAcl`/`PutBucketPolicy`
+- Bucket privado por padrao, sem opcao de tornar publico via API S3
+
+### Solucao: Pre-signed URLs
+
+**`lib/s3.ts`:**
+- Instalado `@aws-sdk/s3-request-presigner`
+- `getPresignedUrl(key)`: gera URL assinada (1h de validade) via `GetObjectCommand`
+- `replaceWithPresignedUrl(url)`: extrai key da URL do bucket e gera URL assinada
+- Removido `ACL: "public-read"` do `uploadToS3()` (nao funciona no Tigris)
+
+**`app/api/cards/[id]/attachments/route.ts`:**
+- GET: apos buscar attachments, substitui URLs de arquivos (type != "link") por pre-signed URLs
+- `Promise.all` para assinar URLs em paralelo
+- Links normais (type = "link") nao sao alterados
+
+### Script temporario
+- `scripts/set-bucket-public.ts` — tentou PutBucketPolicy e PutBucketAcl, ambos falharam no Tigris. Mantido como referencia.
+
+### Verificacao
+- `npm run build` — 0 erros
+- Testado em producao: imagem carrega, audio toca, submenu colapsavel funciona
