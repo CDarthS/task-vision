@@ -103,7 +103,7 @@ export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted,
           </div>
           {/* Avatares dos membros a direita */}
           {members.length > 0 && (
-            <div className="flex -space-x-1.5 shrink-0 flex-wrap justify-end gap-y-1">
+            <div className="flex gap-1 shrink-0 flex-wrap justify-end">
               {members.map((member) => {
                 const colorIdx = member.name.charCodeAt(0) % avatarColors.length;
                 const initials = member.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -111,7 +111,7 @@ export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted,
                   <div
                     key={member.id}
                     title={member.name}
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white ring-2 ring-white overflow-hidden shadow-sm ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white overflow-hidden shadow-sm ${
                       member.image ? "" : `bg-gradient-to-br ${avatarColors[colorIdx]}`
                     }`}
                   >
