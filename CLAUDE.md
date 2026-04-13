@@ -1618,3 +1618,49 @@ app/api/queue/
 
 ### Verificacao
 - `npm run build` — 0 erros
+- Deploy Railway: sucesso, app voltou a funcionar
+- Dashboard carregou normalmente: "Bem-vindo, Carlos Dartier!", 1 workspace, 4 boards, 9 membros
+- Nenhum 502 nos HTTP Logs apos o fix
+
+---
+
+## 2026-04-13 — Limpeza: Mencoes commitadas + endpoint temporario removido
+
+### Contexto
+- Mudancas da sessao anterior (sistema de mencoes, username obrigatorio) existiam localmente mas nao tinham sido commitadas ao git
+- Endpoint temporario `/api/admin/fill-usernames` ja nao era necessario (todos os users ja tinham username)
+
+### Mudancas commitadas (pendentes da sessao anterior)
+
+#### Schema Prisma
+- `USER_MENTIONED` adicionado ao enum `NotificationType`
+- `username` mudou de `String?` para `String` (obrigatorio)
+
+#### Sistema de Mencoes — `app/api/cards/[id]/comments/route.ts`
+- Logica de mencoes: detecta `@username` e `@card` no texto do comentario
+- Para cada `@username`: cria notificacao `USER_MENTIONED` individual
+- Para `@card`: envia `USER_MENTIONED` para todos os membros/watchers
+- Sem `@card`: envia `COMMENT_ADDED` normal (comportamento anterior)
+- `excludeUserIds` evita que usuarios mencionados recebam notificacao duplicada
+
+#### `lib/notifications/create-notification.ts`
+- `notifyCardMembers()` agora aceita `excludeUserIds: string[]` para excluir multiplos usuarios
+
+#### `lib/queue/notification-queue.ts` + `notification-worker.ts`
+- Job type `notify-card-members` agora propaga `excludeUserIds` pelo BullMQ
+
+### Arquivo removido
+- `app/api/admin/fill-usernames/route.ts` — endpoint temporario deletado (todos os users ja tem username)
+
+### Verificacao endpoint fill-usernames
+- Resposta: `{"message":"Todos os usuarios ja tem username preenchido!","updated":0}`
+
+---
+
+## Acesso ao Navegador via Claude in Chrome
+
+### Configuracao bem-sucedida
+- Extensao "Claude Code" (Claude in Chrome) configurada no Chrome do usuario
+- Erro inicial: "Grouping is not supported by tabs in this window" — resolvido com `switch_browser`
+- IA agora tem acesso total ao navegador para testes em producao
+- Fluxo: abrir aba → navegar → capturar screenshot → interagir com UI
