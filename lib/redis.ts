@@ -19,6 +19,8 @@ function createRedisClient(): IORedis {
   const client = new IORedis(url, {
     maxRetriesPerRequest: null, // Exigido pelo BullMQ
     enableReadyCheck: true,
+    connectTimeout: 5000, // Timeout de conexao: 5s (fail-fast)
+    commandTimeout: 5000, // Timeout de comandos: 5s (evita hang de 15s)
     retryStrategy(times) {
       // Retry com backoff exponencial, max 10s
       const delay = Math.min(times * 200, 10000);

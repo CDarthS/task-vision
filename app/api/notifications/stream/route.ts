@@ -1,15 +1,18 @@
 // app/api/notifications/stream/route.ts — Server-Sent Events para notificacoes em tempo real
 //
 // O browser abre um EventSource para este endpoint.
-// O servidor subscreve ao canal Redis do usuario e empurra eventos.
-// Quando uma notificacao e criada, o worker publica no canal via Pub/Sub.
+// O servidor usa um SUBSCRIBER COMPARTILHADO (1 unica conexao Redis para todos os SSE)
+// e registra um listener por stream via EventEmitter.
 //
-// Fallback: se Redis nao estiver disponivel, o endpoint retorna 503
+// Antes: criava 1 conexao IORedis por stream → esgotava pool → 502
+// Agora: 1 conexao compartilhada → O(1) conexoes Redis
+//
+// Fallback: se Redis nao estiver disponivel, retorna 503
 // e o NotificationBell usa o polling tradicional.
 
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { createUserSubscriber } from "@/lib/notifications/realtime";
+import { subscribeUser } from "@/lib/notifications/realtime";
 
 export const dynamic = "force-dynamic";
 
@@ -22,60 +25,51 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Cria subscriber Redis dedicado para este usuario
-  const sub = createUserSubscriber(user.id);
-  if (!sub) {
-    return new Response(JSON.stringify({ error: "Redis indisponivel" }), {
-      status: 503,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  // Registra listener no subscriber compartilhado
+  const encoder = new TextEncoder();
+  let cleanupFn: (() => void) | null = null;
+  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
-  const { subscriber, channel } = sub;
-
-  // Cria ReadableStream para SSE
   const stream = new ReadableStream({
     start(controller) {
-      const encoder = new TextEncoder();
-
       // Envia heartbeat inicial para confirmar conexao
       controller.enqueue(
         encoder.encode(`data: ${JSON.stringify({ type: "connected", userId: user.id })}\n\n`)
       );
 
       // Heartbeat a cada 30s para manter conexao viva
-      const heartbeat = setInterval(() => {
+      heartbeatInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": heartbeat\n\n"));
         } catch {
-          clearInterval(heartbeat);
+          // Stream ja fechado
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
         }
       }, 30000);
 
-      // Subscreve ao canal do usuario
-      subscriber.subscribe(channel).catch(() => {
-        // Se falhar, fecha o stream
-        clearInterval(heartbeat);
-        try { controller.close(); } catch { /* already closed */ }
-      });
-
-      // Quando recebe mensagem do canal, empurra para o browser
-      subscriber.on("message", (_ch: string, message: string) => {
+      // Registra listener no subscriber compartilhado
+      const sub = subscribeUser(user.id, (message: string) => {
         try {
-          controller.enqueue(
-            encoder.encode(`data: ${message}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${message}\n\n`));
         } catch {
           // Stream fechado pelo cliente
-          clearInterval(heartbeat);
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
         }
       });
 
+      if (!sub) {
+        // Redis indisponivel — fecha stream
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
+        try { controller.close(); } catch { /* already closed */ }
+        return;
+      }
+
+      cleanupFn = sub.cleanup;
+
       // Cleanup quando o cliente desconecta
       request.signal.addEventListener("abort", () => {
-        clearInterval(heartbeat);
-        subscriber.unsubscribe(channel).catch(() => {});
-        subscriber.quit().catch(() => {});
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
+        if (cleanupFn) cleanupFn();
         try { controller.close(); } catch { /* already closed */ }
       });
     },

@@ -1,13 +1,19 @@
 // lib/notifications/realtime.ts — Pub/Sub Redis para notificacoes em tempo real
 //
-// Pub/Sub requer 2 conexoes Redis separadas:
-// - publisher: envia mensagens (usado pelos workers)
-// - subscriber: recebe mensagens (usado pelo endpoint SSE)
+// ARQUITETURA (corrigida):
+// - Publisher: singleton, reutiliza conexao principal (envia mensagens)
+// - Subscriber: UNICO singleton compartilhado por todos os SSE streams
+//   Cada stream registra um listener via subscribe/unsubscribe no EventEmitter
+//   Quando o ultimo listener de um canal sai, o canal e removido do Redis
+//
+// Antes: 1 conexao IORedis por SSE stream → esgotava pool do Redis → 502
+// Agora: 1 unica conexao compartilhada → O(1) conexoes independente de users
 //
 // Canal por usuario: tv:notify:{userId}
 // Payload: { count, type, cardTitle }
 
 import IORedis from "ioredis";
+import { EventEmitter } from "events";
 
 const CHANNEL_PREFIX = "tv:notify:";
 
@@ -22,6 +28,7 @@ function getPublisher(): IORedis | null {
     globalForPub.redisPub = new IORedis(process.env.REDIS_URL, {
       maxRetriesPerRequest: null,
       lazyConnect: false,
+      connectTimeout: 5000,
     });
   }
 
@@ -73,25 +80,92 @@ export async function publishNotificationBatch(
   }
 }
 
-// ─── Subscriber (cria conexao dedicada por stream) ──────────
+// ─── Subscriber Compartilhado (1 unica conexao para todos os SSE) ──────────
 
-/**
- * Cria um subscriber dedicado para um usuario.
- * Retorna o subscriber IORedis e o nome do canal.
- * O chamador e responsavel por fazer .unsubscribe() e .quit() ao fechar.
- */
-export function createUserSubscriber(userId: string): {
-  subscriber: IORedis;
-  channel: string;
-} | null {
+interface SharedSubscriber {
+  redis: IORedis;
+  emitter: EventEmitter;
+  channelRefCount: Map<string, number>; // canal → quantidade de listeners
+}
+
+function getSharedSubscriber(): SharedSubscriber | null {
   if (!process.env.REDIS_URL) return null;
 
-  const subscriber = new IORedis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    lazyConnect: false,
-  });
+  const g = globalThis as unknown as { tvSharedSub: SharedSubscriber | undefined };
+
+  if (!g.tvSharedSub) {
+    const redis = new IORedis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      lazyConnect: false,
+      connectTimeout: 5000,
+    });
+
+    const emitter = new EventEmitter();
+    emitter.setMaxListeners(500); // Suporta ate 500 SSE streams simultaneos
+
+    const channelRefCount = new Map<string, number>();
+
+    // Quando o subscriber compartilhado recebe mensagem, redireciona via EventEmitter
+    redis.on("message", (channel: string, message: string) => {
+      emitter.emit(channel, message);
+    });
+
+    redis.on("error", (err) => {
+      console.error("[SharedSub] Erro Redis:", err.message);
+    });
+
+    g.tvSharedSub = { redis, emitter, channelRefCount };
+  }
+
+  return g.tvSharedSub;
+}
+
+/**
+ * Registra um listener para o canal de um usuario.
+ * Retorna uma funcao de cleanup para remover o listener.
+ *
+ * Uso:
+ *   const { channel, cleanup } = subscribeUser(userId, (message) => { ... });
+ *   // ... quando terminar:
+ *   cleanup();
+ */
+export function subscribeUser(
+  userId: string,
+  onMessage: (message: string) => void
+): { channel: string; cleanup: () => void } | null {
+  const shared = getSharedSubscriber();
+  if (!shared) return null;
 
   const channel = `${CHANNEL_PREFIX}${userId}`;
+  const { redis, emitter, channelRefCount } = shared;
 
-  return { subscriber, channel };
+  // Registra listener no EventEmitter
+  emitter.on(channel, onMessage);
+
+  // Incrementa ref count e subscreve no Redis se for o primeiro listener
+  const currentCount = channelRefCount.get(channel) || 0;
+  channelRefCount.set(channel, currentCount + 1);
+
+  if (currentCount === 0) {
+    // Primeiro listener para este canal — subscreve no Redis
+    redis.subscribe(channel).catch((err) => {
+      console.error(`[SharedSub] Falha ao subscrever ${channel}:`, err.message);
+    });
+  }
+
+  // Retorna funcao de cleanup
+  const cleanup = () => {
+    emitter.removeListener(channel, onMessage);
+
+    const count = channelRefCount.get(channel) || 1;
+    if (count <= 1) {
+      // Ultimo listener saiu — remove canal do Redis
+      channelRefCount.delete(channel);
+      redis.unsubscribe(channel).catch(() => {});
+    } else {
+      channelRefCount.set(channel, count - 1);
+    }
+  };
+
+  return { channel, cleanup };
 }

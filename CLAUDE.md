@@ -1554,5 +1554,67 @@ lib/
 app/api/queue/
 ├── health/route.ts                   # GET - Health check publico (Redis + filas + worker)
 └── due-date-scan/route.ts            # GET - Enfileira scan assincrono (auth required)
-```U p d a t e d   w o r k s p a c e   r o l e   d i s p l a y   t o   s h o w   ' A d m i n '   f o r   O W N E R   r o l e  
- 
+```
+
+---
+
+## 2026-04-13 — Hotfix Critico: 502 Bad Gateway — Redis Connection Pool Exhaustion
+
+### Problema reportado
+- App retornava "Application failed to respond" (502 Bad Gateway) em producao
+- HTTP Logs mostravam `/api/notifications/count` alternando entre 200 (230ms) e 502 (15s timeout)
+- Todas as paginas da app falhavam intermitentemente
+
+### Causa raiz — Redis Connection Pool Exhaustion
+
+**BUG CRITICO em `lib/notifications/realtime.ts`:**
+- A funcao `createUserSubscriber()` criava uma NOVA conexao IORedis para CADA stream SSE
+- Cada aba do navegador aberta por um usuario consumia 1 conexao Redis dedicada
+- Redis no Railway tem limite de conexoes (tipicamente 128-256)
+- Quando o limite era atingido, TODAS as operacoes Redis travavam (cache, pub/sub, filas)
+- Requests que dependiam de Redis (como `/api/notifications/count`) ficavam pendentes por 15s ate o timeout do Railway
+- Resultado: 502 Bad Gateway intermitente
+
+**BUG SECUNDARIO em `lib/notifications/cache.ts`:**
+- Operacoes de cache Redis nao tinham timeout
+- Se Redis travava, o request ficava esperando indefinidamente (ate timeout de 15s do Railway)
+- Nao havia fail-fast para fallback ao Prisma
+
+### Correcoes aplicadas (4 arquivos)
+
+#### `lib/notifications/realtime.ts` — Subscriber Compartilhado
+- **REMOVIDO**: `createUserSubscriber()` que criava 1 conexao IORedis por stream
+- **ADICIONADO**: `getSharedSubscriber()` — singleton com 1 UNICA conexao Redis para todos os SSE
+- **ADICIONADO**: `subscribeUser(userId, onMessage)` — registra listener via EventEmitter
+- Ref counting: quando o ultimo listener de um canal sai, o canal e removido do Redis
+- EventEmitter com maxListeners=500 (suporta 500 SSE streams simultaneos com 1 conexao)
+- Resultado: de O(N) conexoes para O(1)
+
+#### `app/api/notifications/stream/route.ts` — SSE Endpoint Reescrito
+- Substituido `createUserSubscriber()` por `subscribeUser()`
+- Cleanup agora chama `cleanup()` em vez de `subscriber.unsubscribe()` + `subscriber.quit()`
+- Nao cria mais conexoes Redis — apenas registra listener no EventEmitter compartilhado
+
+#### `lib/notifications/cache.ts` — Timeout Fail-Fast
+- **ADICIONADO**: `withTimeout()` wrapper que limita operacoes Redis a 3 segundos
+- Todas as funcoes agora tem timeout: getCachedCount, setCachedCount, invalidateCount, invalidateCountBatch
+- Se Redis nao responder em 3s, retorna fallback (null ou 0) em vez de travar
+
+#### `lib/redis.ts` — Connection/Command Timeouts
+- **ADICIONADO**: `connectTimeout: 5000` — timeout de conexao de 5s
+- **ADICIONADO**: `commandTimeout: 5000` — timeout de comandos de 5s
+
+### Decisoes Tecnicas
+- SharedSubscriber singleton via globalThis (sobrevive hot reload)
+- EventEmitter como barramento: zero overhead por listener
+- Ref counting por canal: subscribe no Redis apenas quando 1o listener aparece
+- Timeout de 3s no cache: fallback para Prisma e rapido e transparente
+- Backward compatible: funcoes de publish nao mudaram
+
+### Erros e Correcoes
+| # | Erro | Causa | Correcao |
+|---|------|-------|----------|
+| 14 | 502 Bad Gateway em producao (intermitente) | `createUserSubscriber()` criava 1 IORedis por SSE, esgotava pool | Subscriber compartilhado + timeout fail-fast |
+
+### Verificacao
+- `npm run build` — 0 erros
