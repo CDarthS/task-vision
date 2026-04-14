@@ -263,7 +263,11 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ listId, position }),
-    }).catch(() => {/* silently ignore */});
+    }).then((res) => {
+      if (!res.ok) console.error("[CardMove] Falha ao persistir:", res.status);
+    }).catch((err) => {
+      console.error("[CardMove] Erro de rede:", err);
+    });
   }
 
   // ─── Handlers normais ────────────────────────────────────────────────

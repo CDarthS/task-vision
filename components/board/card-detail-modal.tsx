@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
 const EmojiPicker = dynamic(() => import("@emoji-mart/react"), { ssr: false });
+import * as Popover from "@radix-ui/react-popover";
 
 // ─── InlineEdit: texto editavel com clique ─────────────────────────────
 function InlineEdit({
@@ -325,7 +326,7 @@ export function CardDetailModal({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showMemberPicker, showActionsMenu, showAddMenu]);
+  }, [showMemberPicker, showActionsMenu, showAddMenu, showCopyPopover, showMovePopover]);
 
   // Carrega comentarios, checklists, labels, membros e atividades ao abrir
   useEffect(() => {
@@ -2977,11 +2978,28 @@ export function CardDetailModal({
 
                           {/* Action links */}
                           <div className="flex items-center gap-1.5 mt-1">
-                            <button onClick={() => setShowEmojiPickerFor(showEmojiPickerFor === item.id ? null : item.id)} className="text-gray-400 hover:text-gray-600 cursor-pointer p-0.5" title="Reagir">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
-                              </svg>
-                            </button>
+                            <Popover.Root open={showEmojiPickerFor === item.id} onOpenChange={(open) => setShowEmojiPickerFor(open ? item.id : null)}>
+                              <Popover.Trigger asChild>
+                                <button className="text-gray-400 hover:text-gray-600 cursor-pointer p-0.5" title="Reagir">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+                                  </svg>
+                                </button>
+                              </Popover.Trigger>
+                              <Popover.Portal>
+                                <Popover.Content className="z-[99999]" sideOffset={5} align="start">
+                                  <EmojiPicker
+                                    onEmojiSelect={(emoji: { native: string }) => { toggleReaction(item.id, emoji.native); setShowEmojiPickerFor(null); }}
+                                    theme="light"
+                                    locale="pt"
+                                    previewPosition="none"
+                                    skinTonePosition="none"
+                                    maxFrequentRows={1}
+                                    perLine={8}
+                                  />
+                                </Popover.Content>
+                              </Popover.Portal>
+                            </Popover.Root>
                             {canEdit && (
                               <>
                                 <span className="text-gray-300">·</span>
@@ -2995,22 +3013,6 @@ export function CardDetailModal({
                               {item.updatedAt && item.updatedAt !== item.createdAt && <span className="italic ml-1">(editado)</span>}
                             </span>
                           </div>
-
-                          {/* Emoji picker (emoji-mart) */}
-                          {showEmojiPickerFor === item.id && (
-                            <div className="absolute z-50 mt-1 right-0">
-                              <EmojiPicker
-                                onEmojiSelect={(emoji: { native: string }) => toggleReaction(item.id, emoji.native)}
-                                onClickOutside={() => setShowEmojiPickerFor(null)}
-                                theme="light"
-                                locale="pt"
-                                previewPosition="none"
-                                skinTonePosition="none"
-                                maxFrequentRows={1}
-                                perLine={8}
-                              />
-                            </div>
-                          )}
                         </div>
                       </div>
                     );

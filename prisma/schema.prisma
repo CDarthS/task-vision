@@ -297,7 +297,7 @@ model Comment {
   updatedAt DateTime @updatedAt
 
   card          Card               @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  user          User               @relation("CommentAuthor", fields: [userId], references: [id])
+  user          User               @relation("CommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
   notifications Notification[]
   reactions     CommentReaction[]
 

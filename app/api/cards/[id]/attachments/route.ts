@@ -141,7 +141,9 @@ export async function POST(
         include: { creator: { select: { id: true, name: true } } },
       });
 
-      return NextResponse.json({ attachment }, { status: 201 });
+      // Retornar com URL pre-assinada para reproduzir imediatamente no client
+      const signedUrl = await replaceWithPresignedUrl(fileUrl);
+      return NextResponse.json({ attachment: { ...attachment, url: signedUrl } }, { status: 201 });
     }
 
     // ─── Link via JSON (comportamento original) ─────
@@ -188,6 +190,11 @@ export async function DELETE(
     // Buscar attachment para limpar S3 se for arquivo
     const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
     if (!attachment) return NextResponse.json({ error: "Anexo nao encontrado" }, { status: 404 });
+
+    // Verificar que o anexo pertence a este card (evita exclusao cross-card)
+    if (attachment.cardId !== id) {
+      return NextResponse.json({ error: "Anexo nao pertence a este card" }, { status: 403 });
+    }
 
     // Se for arquivo (nao link), deletar do S3
     if (attachment.type !== "link") {

@@ -2178,3 +2178,53 @@ app/api/queue/
 |---|------|-------|----------|
 | 15 | Usuarios deslogados apos trocar propria senha | `passwordChangedAt` invalidava sessao atual sem renovar | Limpar sessoes antigas + criar nova sessao para self |
 | 16 | Membros sumiam dos cartoes ao editar qualquer campo | `PATCH /api/cards/:id` retornava card sem members | Incluir members/watchers/labels no response + merge no client |
+
+---
+
+## 2026-04-14 — Bugfix: Audio/Imagem nao reproduz apos upload + Auditoria de codigo
+
+### Problema reportado
+- Audio gravado e imagens enviadas nao reproduziam imediatamente apos upload
+- Precisava recarregar a pagina e reabrir o cartao para funcionar
+
+### Causa raiz — URL crua do S3
+- O POST `/api/cards/:id/attachments` retornava a URL **crua** do S3 (privada)
+- O GET do mesmo endpoint retornava URLs **pre-assinadas** (que funcionam)
+- Apos upload, o client usava a URL crua diretamente no `<audio>` e `<img>` — AccessDenied
+- Ao recarregar, o GET era chamado e retornava URL pre-assinada — funcionava
+
+### Correcao
+**`app/api/cards/[id]/attachments/route.ts` (POST):**
+- Apos criar o attachment, chama `replaceWithPresignedUrl(fileUrl)` antes de retornar
+- O client recebe URL pre-assinada e reproduz imediatamente
+
+### Auditoria de codigo — Correcoes adicionais
+
+**`app/api/cards/[id]/attachments/route.ts` (DELETE) — Validacao de seguranca:**
+- Adicionada verificacao `if (attachment.cardId !== id)` para impedir exclusao cross-card
+- Antes: qualquer usuario com acesso a um card podia deletar anexos de QUALQUER card
+
+**`prisma/schema.prisma` — Comment.user onDelete Cascade:**
+- Comment.user nao tinha `onDelete` (default: RESTRICT)
+- Deletar um usuario que tivesse comentarios falhava com erro de foreign key
+- Adicionado `onDelete: Cascade` para limpar comentarios junto com o usuario
+
+**`components/board/card-detail-modal.tsx` — useEffect deps incompletas:**
+- O useEffect de click-outside usava `showCopyPopover` e `showMovePopover` na condicao
+- Mas faltavam no array de dependencias, causando listener stale/memory leak
+- Adicionadas as 2 deps faltantes
+
+**`components/board/board-client.tsx` — persistCardMove com feedback:**
+- `persistCardMove()` engolia todos os erros com `.catch(() => {})`
+- Adicionado `.then()` que loga erros HTTP e `.catch()` que loga erros de rede
+
+### Erros e Correcoes
+| # | Erro | Causa | Correcao |
+|---|------|-------|----------|
+| 17 | Audio/imagem nao reproduz apos upload | POST retornava URL crua S3 (privada) | Retornar URL pre-assinada no POST |
+| 18 | DELETE attachment sem validacao cross-card | Nao verificava attachment.cardId | Adicionado check `cardId !== id` |
+| 19 | Deletar usuario com comentarios falhava | Comment.user sem onDelete Cascade | Adicionado `onDelete: Cascade` |
+| 20 | useEffect click-outside com deps faltando | showCopyPopover e showMovePopover ausentes | Adicionadas as 2 deps |
+
+### Verificacao
+- `npm run build` — 0 erros
