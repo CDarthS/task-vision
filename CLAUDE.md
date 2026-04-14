@@ -2271,3 +2271,27 @@ app/api/queue/
 
 ### Verificacao
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-14 — Fix: Auto-expand na descricao e reset no campo de comentario
+
+### Problemas reportados
+1. Campo de comentario nao encolhia apos enviar texto longo (textarea ficava esticada)
+2. Campo de descricao nao expandia ao colar texto longo — texto ficava cortado/scrollavel
+
+### Correcoes em `components/board/card-detail-modal.tsx`
+
+**Campo de comentario — reset de altura apos enviar:**
+- `postComment()` agora reseta `commentInputRef.current.style.height = "auto"` apos limpar o texto
+- Antes: `setCommentText("")` limpava o texto mas o textarea mantinha a altura expandida
+
+**Campo de descricao — auto-expand com auto-shrink:**
+- Adicionado `onChange` com logica de auto-resize: `e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"`
+- Adicionado `ref` callback que expande ao abrir com texto existente
+- Adicionado `overflow-hidden` para evitar scrollbar interna
+- Ao digitar/colar texto: textarea cresce automaticamente
+- Ao apagar texto: textarea encolhe de volta ao `min-h-[100px]`
+
+### Verificacao build
+- `npm run build` — 0 erros

@@ -1017,6 +1017,10 @@ export function CardDetailModal({
       if (res.ok) {
         setComments((prev) => [data.comment, ...prev]);
         setCommentText("");
+        // Reset altura do textarea ao limpar o texto
+        if (commentInputRef.current) {
+          commentInputRef.current.style.height = "auto";
+        }
       }
     } catch {
       // silently fail
@@ -2275,9 +2279,21 @@ export function CardDetailModal({
                 <div>
                   <textarea
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      // Auto-expand/shrink
+                      e.target.style.height = "auto";
+                      e.target.style.height = e.target.scrollHeight + "px";
+                    }}
+                    ref={(el) => {
+                      // Auto-expand ao abrir com texto existente
+                      if (el) {
+                        el.style.height = "auto";
+                        el.style.height = el.scrollHeight + "px";
+                      }
+                    }}
                     placeholder="Adicione uma descricao mais detalhada..."
-                    className="w-full min-h-[100px] px-4 py-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none transition-all"
+                    className="w-full min-h-[100px] px-4 py-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none overflow-hidden transition-all"
                     autoFocus
                   />
                   <div className="flex items-center gap-2 mt-2">
