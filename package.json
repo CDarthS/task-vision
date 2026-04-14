@@ -23,6 +23,7 @@
     "@emoji-mart/react": "^1.1.1",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
+    "@radix-ui/react-popover": "^1.1.15",
     "bcrypt": "^6.0.0",
     "browser-image-compression": "^2.0.2",
     "bullmq": "^5.73.5",
