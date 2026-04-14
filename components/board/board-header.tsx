@@ -30,7 +30,7 @@ export function BoardHeader({ title, boardId, children }: BoardHeaderProps) {
   }
 
   return (
-    <div className="h-12 shrink-0 flex items-center px-5 bg-black/20 backdrop-blur-sm">
+    <div className="h-12 shrink-0 flex items-center px-5 bg-black/20 backdrop-blur-sm relative z-20">
       {/* Titulo do board — editavel inline */}
       <EditableTitle
         value={currentTitle}
