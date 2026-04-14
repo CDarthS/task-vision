@@ -2112,3 +2112,69 @@ app/api/queue/
 - `app/favicon.ico` (EXCLUÍDO)
 - `app/login/page.tsx`
 - `components/dashboard-nav.tsx`
+
+---
+
+## 2026-04-14 — Bugfix: Login e Membros Sumindo dos Cartoes
+
+### Problemas reportados
+1. **Membros e admins com dificuldade para fazer login** — apos troca de senha, sessoes antigas nao eram limpas e o usuario era deslogado imediatamente
+2. **Membros sumindo dos cartoes** — ao editar titulo, descricao ou data de um cartao, os membros desapareciam da visualizacao do board
+
+### Causa raiz — BUG 1: Sessoes invalidadas apos troca de senha
+
+**Cenario 1 — Usuario muda propria senha:**
+- `PATCH /api/users/:id/password` setava `passwordChangedAt = new Date()`
+- `getCurrentUser()` comparava `payload.iat < passwordChangedAt` e retornava null
+- O usuario era deslogado imediatamente apos mudar a propria senha
+- Sessoes antigas permaneciam no banco (nunca limpas)
+
+**Cenario 2 — Admin muda senha de outro usuario:**
+- `PATCH /api/users/:id` com body.password setava `passwordChangedAt`
+- Sessoes antigas do usuario afetado nao eram deletadas
+- Usuario ficava com sessao "fantasma" (existe no banco mas e rejeitada pelo iat check)
+
+### Correcao BUG 1
+
+**`app/api/users/[id]/password/route.ts`:**
+- Apos alterar senha: `deleteAllUserSessions(id)` limpa TODAS as sessoes antigas
+- Se o usuario mudou a PROPRIA senha (`isSelf`): cria nova sessao e seta cookies frescos
+- Resultado: usuario permanece logado apos mudar propria senha
+
+**`app/api/users/[id]/route.ts`:**
+- Import de `deleteAllUserSessions` adicionado
+- Apos admin mudar senha: `deleteAllUserSessions(id)` forca re-login com nova senha
+- Apos admin desativar usuario: `deleteAllUserSessions(id)` forca logout imediato
+
+### Causa raiz — BUG 2: Membros sumindo dos cartoes
+
+**Fluxo do bug:**
+1. Usuario abre modal do cartao e edita titulo/descricao/data
+2. Modal chama `PATCH /api/cards/:id` → API retorna card SEM members/watchers/labels
+3. `onUpdate(data.card)` e chamado → `handleCardUpdate` substitui o card inteiro no estado do board
+4. O card no board perde `members`, `watchers` e `labels` (ficam `undefined`)
+5. Na visualizacao kanban, os avatares dos membros desaparecem
+
+**O bug acontecia TODA VEZ que qualquer campo do card era editado.**
+
+### Correcao BUG 2
+
+**`app/api/cards/[id]/route.ts` (PATCH):**
+- `prisma.card.update()` agora inclui `members`, `watchers` e `labels` no response
+- Adicionado: `include: { members: { select: { userId: true } }, watchers: { select: { userId: true } }, labels: { include: { label: true } } }`
+
+**`components/board/board-client.tsx`:**
+- `handleCardUpdate` reescrito para fazer MERGE em vez de substituicao total
+- Se o card atualizado tem `members`, usa-os; senao, preserva os do estado atual
+- Mesmo padrao para `watchers` e `labels`
+- `setSelectedCard` tambem faz merge
+
+### Verificacao
+- `npm run build` — 0 erros
+- Todas as rotas compilam corretamente
+
+### Erros e Correcoes
+| # | Erro | Causa | Correcao |
+|---|------|-------|----------|
+| 15 | Usuarios deslogados apos trocar propria senha | `passwordChangedAt` invalidava sessao atual sem renovar | Limpar sessoes antigas + criar nova sessao para self |
+| 16 | Membros sumiam dos cartoes ao editar qualquer campo | `PATCH /api/cards/:id` retornava card sem members | Incluir members/watchers/labels no response + merge no client |

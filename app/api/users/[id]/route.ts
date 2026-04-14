@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/auth/get-current-user";
 import { hashPassword } from "@/lib/auth/password";
+import { deleteAllUserSessions } from "@/lib/auth/session";
 
 // GET /api/users/:id
 export async function GET(
@@ -106,6 +107,8 @@ export async function PATCH(
       }
     }
 
+    const passwordWasChanged = !!data.passwordChangedAt;
+
     const user = await prisma.user.update({
       where: { id },
       data,
@@ -119,6 +122,17 @@ export async function PATCH(
         createdAt: true,
       },
     });
+
+    // Se a senha foi alterada pelo admin, limpar sessoes do usuario afetado
+    // para forcar novo login com a senha atualizada
+    if (passwordWasChanged) {
+      await deleteAllUserSessions(id);
+    }
+
+    // Se o usuario foi desativado, limpar sessoes para forcar logout imediato
+    if (data.isDeactivated === true) {
+      await deleteAllUserSessions(id);
+    }
 
     return NextResponse.json({ user });
   } catch (err) {

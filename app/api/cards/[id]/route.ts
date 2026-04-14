@@ -110,6 +110,11 @@ export async function PATCH(
     const updated = await prisma.card.update({
       where: { id },
       data: updateData,
+      include: {
+        members: { select: { userId: true } },
+        watchers: { select: { userId: true } },
+        labels: { include: { label: true } },
+      },
     });
 
     // --- Registro de atividades ---

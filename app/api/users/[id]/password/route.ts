@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { createSession, deleteAllUserSessions } from "@/lib/auth/session";
 
 // PATCH /api/users/:id/password
 export async function PATCH(
@@ -64,6 +65,44 @@ export async function PATCH(
         passwordChangedAt: new Date(),
       },
     });
+
+    // Limpa TODAS as sessoes antigas do usuario afetado
+    await deleteAllUserSessions(id);
+
+    // Se o usuario mudou a PROPRIA senha, cria uma nova sessao para mante-lo logado
+    if (isSelf) {
+      const { accessToken, httpOnlyToken } = await createSession({
+        userId: id,
+        remoteAddress:
+          request.headers.get("x-forwarded-for") ??
+          request.headers.get("x-real-ip") ??
+          undefined,
+        userAgent: request.headers.get("user-agent") ?? undefined,
+      });
+
+      const isProduction = process.env.NODE_ENV === "production";
+      const maxAge = 365 * 24 * 60 * 60;
+
+      const response = NextResponse.json({ success: true });
+
+      response.cookies.set("accessToken", accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "strict",
+        path: "/",
+        maxAge,
+      });
+
+      response.cookies.set("httpOnlyToken", httpOnlyToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "strict",
+        path: "/",
+        maxAge,
+      });
+
+      return response;
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

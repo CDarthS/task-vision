@@ -334,12 +334,29 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
     setLists((prev) =>
       prev.map((list) => ({
         ...list,
-        cards: list.cards.map((c) =>
-          c.id === updatedCard.id ? updatedCard : c
-        ),
+        cards: list.cards.map((c) => {
+          if (c.id !== updatedCard.id) return c;
+          // Merge: preserva members/watchers/labels do estado atual se a API nao retornou
+          return {
+            ...c,
+            ...updatedCard,
+            members: updatedCard.members ?? c.members,
+            watchers: updatedCard.watchers ?? c.watchers,
+            labels: updatedCard.labels ?? c.labels,
+          };
+        }),
       }))
     );
-    setSelectedCard(updatedCard);
+    setSelectedCard((prev) => {
+      if (!prev || prev.id !== updatedCard.id) return updatedCard;
+      return {
+        ...prev,
+        ...updatedCard,
+        members: updatedCard.members ?? prev.members,
+        watchers: updatedCard.watchers ?? prev.watchers,
+        labels: updatedCard.labels ?? prev.labels,
+      };
+    });
   }
 
   function handleCardDelete(cardId: string) {
