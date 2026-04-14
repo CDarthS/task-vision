@@ -2333,3 +2333,62 @@ app/api/queue/
 
 ### Verificacao
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-14 — Fix: Dropdown Filtros z-index
+
+### Problema
+- Dropdown de filtros ficava por baixo dos cartoes e listas do board
+- Cards, listas e botao "Adicionar outra lista" sobrepunham o dropdown
+
+### Correcao
+- `components/board/board-header.tsx`: adicionado `relative z-20` ao container do header
+- O dropdown do filtro (z-50) agora fica corretamente acima da area kanban
+
+---
+
+## 2026-04-14 — Etiquetas estilo Trello (Criar, Editar, Excluir)
+
+### Contexto
+- Sistema de etiquetas anterior era basico: 8 cores, criacao simples, sem edicao
+- Usuario pediu para ficar parecido com Trello: criar, editar, excluir, paleta de cores rica
+
+### API criada
+- `app/api/labels/[id]/route.ts` — PATCH (editar nome/cor) + DELETE (excluir label do board)
+- Ambos verificam membership no workspace antes de permitir operacao
+
+### Paleta de cores expandida
+- De 8 cores simples para 30 cores em grid 5x6 (estilo Trello)
+- 6 familias (green, yellow, orange, red, purple) x 3 intensidades (subtle, base, bold)
+- + 5 familias extras (blue, cyan, lime, pink, black) x 3 intensidades
+- Cores agora usam hex inline em vez de classes Tailwind
+- Compatibilidade mantida: cores legadas mapeadas para hex equivalente
+
+### UI redesenhada — 3 views estilo Trello
+
+**View "list" (padrao):**
+- Campo de busca no topo
+- Lista de labels com checkbox + barra colorida + nome + botao editar (lapis)
+- Botao "Criar uma nova etiqueta" no rodape
+
+**View "edit":**
+- Header com seta voltar + titulo + X fechar
+- Preview da cor com nome sobreposto
+- Input de titulo
+- Grid 5x6 de cores com check na selecionada
+- Botao "Remover cor"
+- Botoes "Salvar" + "Excluir"
+
+**View "create":**
+- Identico ao edit, mas titulo "Criar Etiqueta" e botao "Criar"
+
+### Arquivos criados
+- `app/api/labels/[id]/route.ts`
+
+### Arquivos modificados
+- `components/board/card-detail-modal.tsx` — paleta expandida, 3 views, funcoes updateLabel/deleteLabelFromBoard
+- `components/board/kanban-card.tsx` — cores hex em vez de classes Tailwind
+
+### Verificacao
+- `npm run build` — 0 erros

@@ -20,19 +20,18 @@ interface KanbanCardProps {
   onClick?: () => void;
 }
 
-const LABEL_COLORS = [
-  { value: "red", bg: "bg-red-500" },
-  { value: "blue", bg: "bg-blue-500" },
-  { value: "green", bg: "bg-green-500" },
-  { value: "yellow", bg: "bg-yellow-400" },
-  { value: "purple", bg: "bg-purple-500" },
-  { value: "orange", bg: "bg-orange-500" },
-  { value: "pink", bg: "bg-pink-500" },
-  { value: "cyan", bg: "bg-cyan-500" },
-];
+// Paleta de cores — mesma usada no card-detail-modal
+const LABEL_COLORS_MAP: Record<string, string> = {
+  green_subtle: "#4BCE97", yellow_subtle: "#F5CD47", orange_subtle: "#FEA362", red_subtle: "#F87168", purple_subtle: "#9F8FEF",
+  green: "#1F845A", yellow: "#946F00", orange: "#C25100", red: "#C9372C", purple: "#6E5DC6",
+  green_bold: "#216E4E", yellow_bold: "#7F5F01", orange_bold: "#A54800", red_bold: "#AE2E24", purple_bold: "#5E4DB2",
+  blue_subtle: "#579DFF", cyan_subtle: "#6CC3E0", lime_subtle: "#94C748", pink_subtle: "#E774BB", black_subtle: "#8590A2",
+  blue: "#0C66E4", cyan: "#227D9B", lime: "#5B7F24", pink: "#AE4787", black: "#626F86",
+  blue_bold: "#09326C", cyan_bold: "#164555", lime_bold: "#37471F", pink_bold: "#943D73", black_bold: "#44546F",
+};
 
-function getLabelBg(color: string) {
-  return LABEL_COLORS.find((c) => c.value === color)?.bg || "bg-gray-500";
+function getLabelHex(color: string): string {
+  return LABEL_COLORS_MAP[color] || "#8590A2";
 }
 
 const avatarColors = [
@@ -95,9 +94,10 @@ export function KanbanCard({ id, title, hasDescription, dueDate, isDueCompleted,
             <span
               key={label.id}
               title={label.name || undefined}
-              className={`inline-block ${getLabelBg(label.color)} rounded-full shadow-sm ${
+              className={`inline-block rounded-full shadow-sm ${
                 label.name ? "px-2 py-[2px] text-[10px] font-bold text-white max-w-full truncate" : "w-10 h-2"
               }`}
+              style={{ backgroundColor: getLabelHex(label.color) }}
             >
               {label.name}
             </span>

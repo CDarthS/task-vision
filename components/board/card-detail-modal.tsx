@@ -142,20 +142,61 @@ interface CardDetailModalProps {
   isAdmin?: boolean;
 }
 
-const LABEL_COLORS = [
-  { value: "red", bg: "bg-red-500", label: "Vermelho" },
-  { value: "blue", bg: "bg-blue-500", label: "Azul" },
-  { value: "green", bg: "bg-green-500", label: "Verde" },
-  { value: "yellow", bg: "bg-yellow-400", label: "Amarelo" },
-  { value: "purple", bg: "bg-purple-500", label: "Roxo" },
-  { value: "orange", bg: "bg-orange-500", label: "Laranja" },
-  { value: "pink", bg: "bg-pink-500", label: "Rosa" },
-  { value: "cyan", bg: "bg-cyan-500", label: "Ciano" },
+// Paleta de cores estilo Trello (30 cores em grid 6x5)
+const LABEL_COLORS_GRID = [
+  // Row 1 — subtis
+  { value: "green_subtle", hex: "#4BCE97" },
+  { value: "yellow_subtle", hex: "#F5CD47" },
+  { value: "orange_subtle", hex: "#FEA362" },
+  { value: "red_subtle", hex: "#F87168" },
+  { value: "purple_subtle", hex: "#9F8FEF" },
+  // Row 2 — base
+  { value: "green", hex: "#1F845A" },
+  { value: "yellow", hex: "#946F00" },
+  { value: "orange", hex: "#C25100" },
+  { value: "red", hex: "#C9372C" },
+  { value: "purple", hex: "#6E5DC6" },
+  // Row 3 — bold
+  { value: "green_bold", hex: "#216E4E" },
+  { value: "yellow_bold", hex: "#7F5F01" },
+  { value: "orange_bold", hex: "#A54800" },
+  { value: "red_bold", hex: "#AE2E24" },
+  { value: "purple_bold", hex: "#5E4DB2" },
+  // Row 4 — extras subtis
+  { value: "blue_subtle", hex: "#579DFF" },
+  { value: "cyan_subtle", hex: "#6CC3E0" },
+  { value: "lime_subtle", hex: "#94C748" },
+  { value: "pink_subtle", hex: "#E774BB" },
+  { value: "black_subtle", hex: "#8590A2" },
+  // Row 5 — extras base
+  { value: "blue", hex: "#0C66E4" },
+  { value: "cyan", hex: "#227D9B" },
+  { value: "lime", hex: "#5B7F24" },
+  { value: "pink", hex: "#AE4787" },
+  { value: "black", hex: "#626F86" },
+  // Row 6 — extras bold
+  { value: "blue_bold", hex: "#09326C" },
+  { value: "cyan_bold", hex: "#164555" },
+  { value: "lime_bold", hex: "#37471F" },
+  { value: "pink_bold", hex: "#943D73" },
+  { value: "black_bold", hex: "#44546F" },
 ];
 
-function getLabelBg(color: string) {
-  return LABEL_COLORS.find((c) => c.value === color)?.bg || "bg-gray-500";
+// Mapear valores antigos (bg-*) para hex, e novos valores para hex
+function getLabelHex(color: string): string {
+  // Cores novas (hex direto)
+  const found = LABEL_COLORS_GRID.find((c) => c.value === color);
+  if (found) return found.hex;
+  // Fallback legado
+  const LEGACY_MAP: Record<string, string> = {
+    red: "#C9372C", blue: "#0C66E4", green: "#1F845A", yellow: "#946F00",
+    purple: "#6E5DC6", orange: "#C25100", pink: "#AE4787", cyan: "#227D9B",
+  };
+  return LEGACY_MAP[color] || "#8590A2";
 }
+
+// getLabelBg mantido para retrocompatibilidade
+function getLabelBg(color: string) { return getLabelHex(color); }
 
 export function CardDetailModal({
   card,
@@ -217,8 +258,11 @@ export function CardDetailModal({
   const [cardLabels, setCardLabels] = useState<LabelData[]>([]);
   const [boardLabels, setBoardLabels] = useState<LabelData[]>([]);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
-  const [newLabelColor, setNewLabelColor] = useState("");
-  const [newLabelName, setNewLabelName] = useState("");
+  const [labelView, setLabelView] = useState<"list" | "edit" | "create">("list");
+  const [labelSearch, setLabelSearch] = useState("");
+  const [editingLabel, setEditingLabel] = useState<LabelData | null>(null);
+  const [labelFormName, setLabelFormName] = useState("");
+  const [labelFormColor, setLabelFormColor] = useState("");
 
   // Members state
   const [cardMembers, setCardMembers] = useState<MemberData[]>([]);
@@ -639,18 +683,52 @@ export function CardDetailModal({
   }
 
   async function createLabel() {
-    if (!newLabelColor) return;
+    if (!labelFormColor) return;
     try {
       const res = await fetch(`/api/boards/${boardId}/labels`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newLabelName.trim() || null, color: newLabelColor }),
+        body: JSON.stringify({ name: labelFormName.trim() || null, color: labelFormColor }),
       });
       const data = await res.json();
       if (res.ok) {
         setBoardLabels((prev) => [...prev, data.label]);
-        setNewLabelColor("");
-        setNewLabelName("");
+        setLabelFormColor("");
+        setLabelFormName("");
+        setLabelView("list");
+      }
+    } catch { /* silently fail */ }
+  }
+
+  async function updateLabel() {
+    if (!editingLabel) return;
+    try {
+      const res = await fetch(`/api/labels/${editingLabel.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: labelFormName.trim() || null, color: labelFormColor || editingLabel.color }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBoardLabels((prev) => prev.map((l) => l.id === editingLabel.id ? data.label : l));
+        setCardLabels((prev) => prev.map((l) => l.id === editingLabel.id ? data.label : l));
+        setEditingLabel(null);
+        setLabelFormColor("");
+        setLabelFormName("");
+        setLabelView("list");
+      }
+    } catch { /* silently fail */ }
+  }
+
+  async function deleteLabelFromBoard() {
+    if (!editingLabel) return;
+    try {
+      const res = await fetch(`/api/labels/${editingLabel.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setBoardLabels((prev) => prev.filter((l) => l.id !== editingLabel.id));
+        setCardLabels((prev) => prev.filter((l) => l.id !== editingLabel.id));
+        setEditingLabel(null);
+        setLabelView("list");
       }
     } catch { /* silently fail */ }
   }
@@ -1812,9 +1890,10 @@ export function CardDetailModal({
                 {cardLabels.map((label) => (
                   <span
                     key={label.id}
-                    className={`${getLabelBg(label.color)} text-white text-xs font-medium px-2.5 py-1 rounded-md`}
+                    className="text-white text-xs font-medium px-2.5 py-1 rounded-md"
+                    style={{ backgroundColor: getLabelHex(label.color) }}
                   >
-                    {label.name || label.color}
+                    {label.name || ""}
                   </span>
                 ))}
               </div>
@@ -1991,14 +2070,27 @@ export function CardDetailModal({
               </div>
             )}
 
-            {/* Label Picker Popover */}
+            {/* Label Picker Popover — estilo Trello */}
             {showLabelPicker && (
-              <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-700">Etiquetas</h4>
+              <div className="mb-6 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden" style={{ maxWidth: 320 }}>
+                {/* Header com back/title/close */}
+                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
+                  {labelView !== "list" ? (
+                    <button
+                      onClick={() => { setLabelView("list"); setEditingLabel(null); setLabelFormColor(""); setLabelFormName(""); }}
+                      className="text-gray-400 hover:text-gray-600 cursor-pointer p-0.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                      </svg>
+                    </button>
+                  ) : <div className="w-5" />}
+                  <h4 className="text-sm font-semibold text-gray-800 text-center flex-1">
+                    {labelView === "list" ? "Etiquetas" : labelView === "edit" ? "Editar etiqueta" : "Criar Etiqueta"}
+                  </h4>
                   <button
-                    onClick={() => setShowLabelPicker(false)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                    onClick={() => { setShowLabelPicker(false); setLabelView("list"); setEditingLabel(null); }}
+                    className="text-gray-400 hover:text-gray-600 cursor-pointer p-0.5"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -2006,63 +2098,176 @@ export function CardDetailModal({
                   </button>
                 </div>
 
-                {/* Labels existentes do board */}
-                {boardLabels.length > 0 && (
-                  <div className="space-y-1.5 mb-3">
-                    {boardLabels.map((label) => {
-                      const isAssigned = cardLabels.some((l) => l.id === label.id);
-                      return (
-                        <button
-                          key={label.id}
-                          onClick={() => toggleLabel(label.id)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-all cursor-pointer ${
-                            isAssigned ? "ring-2 ring-violet-400 bg-white" : "hover:bg-gray-100"
-                          }`}
-                        >
-                          <div className={`w-8 h-5 rounded ${getLabelBg(label.color)}`} />
-                          <span className="flex-1 text-gray-700">{label.name || label.color}</span>
-                          {isAssigned && (
-                            <svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Criar nova label */}
-                <div className="border-t border-gray-200 pt-3">
-                  <p className="text-xs text-gray-500 mb-2">Criar nova etiqueta</p>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {LABEL_COLORS.map((c) => (
-                      <button
-                        key={c.value}
-                        onClick={() => setNewLabelColor(c.value)}
-                        className={`w-7 h-5 rounded ${c.bg} transition-all cursor-pointer ${
-                          newLabelColor === c.value ? "ring-2 ring-offset-1 ring-violet-500 scale-110" : "hover:scale-105"
-                        }`}
-                        title={c.label}
-                      />
-                    ))}
-                  </div>
-                  {newLabelColor && (
-                    <div className="flex gap-2">
+                <div className="p-3">
+                  {/* ═══ VIEW: Lista de etiquetas ═══ */}
+                  {labelView === "list" && (
+                    <>
+                      {/* Buscar */}
                       <input
                         type="text"
-                        value={newLabelName}
-                        onChange={(e) => setNewLabelName(e.target.value)}
-                        placeholder="Nome (opcional)"
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-violet-400"
+                        value={labelSearch}
+                        onChange={(e) => setLabelSearch(e.target.value)}
+                        placeholder="Buscar etiquetas..."
+                        className="w-full px-3 py-1.5 mb-3 text-sm border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
                       />
+
+                      {/* Label list header */}
+                      <p className="text-xs font-semibold text-gray-500 mb-2">Etiquetas</p>
+
+                      {/* Labels existentes */}
+                      <div className="space-y-1 mb-3 max-h-[280px] overflow-y-auto">
+                        {boardLabels
+                          .filter((l) => {
+                            if (!labelSearch.trim()) return true;
+                            const search = labelSearch.toLowerCase();
+                            return (l.name || l.color || "").toLowerCase().includes(search);
+                          })
+                          .map((label) => {
+                            const isAssigned = cardLabels.some((l) => l.id === label.id);
+                            return (
+                              <div key={label.id} className="flex items-center gap-1.5">
+                                {/* Checkbox */}
+                                <input
+                                  type="checkbox"
+                                  checked={isAssigned}
+                                  onChange={() => toggleLabel(label.id)}
+                                  className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-600 cursor-pointer shrink-0"
+                                />
+                                {/* Color bar clicavel */}
+                                <button
+                                  onClick={() => toggleLabel(label.id)}
+                                  className="flex-1 h-8 rounded flex items-center px-3 cursor-pointer transition-opacity hover:opacity-80"
+                                  style={{ backgroundColor: getLabelHex(label.color) }}
+                                >
+                                  <span className="text-white text-sm font-medium truncate drop-shadow-sm">
+                                    {label.name || ""}
+                                  </span>
+                                  {isAssigned && (
+                                    <svg className="w-4 h-4 text-white ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                  )}
+                                </button>
+                                {/* Edit button */}
+                                <button
+                                  onClick={() => {
+                                    setEditingLabel(label);
+                                    setLabelFormName(label.name || "");
+                                    setLabelFormColor(label.color);
+                                    setLabelView("edit");
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer shrink-0"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                                  </svg>
+                                </button>
+                              </div>
+                            );
+                          })}
+                      </div>
+
+                      {/* Criar nova etiqueta */}
                       <button
-                        onClick={createLabel}
-                        className="px-3 py-1.5 bg-violet-600 text-white text-xs rounded-lg hover:bg-violet-700 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setLabelFormName("");
+                          setLabelFormColor("");
+                          setEditingLabel(null);
+                          setLabelView("create");
+                        }}
+                        className="w-full py-1.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
                       >
-                        Criar
+                        Criar uma nova etiqueta
                       </button>
-                    </div>
+                    </>
+                  )}
+
+                  {/* ═══ VIEW: Editar / Criar etiqueta ═══ */}
+                  {(labelView === "edit" || labelView === "create") && (
+                    <>
+                      {/* Preview da cor */}
+                      <div
+                        className="w-full h-10 rounded-lg mb-3 flex items-center justify-center"
+                        style={{ backgroundColor: labelFormColor ? getLabelHex(labelFormColor) : "#DFE1E6" }}
+                      >
+                        {labelFormName && (
+                          <span className="text-white text-sm font-medium drop-shadow-sm truncate px-3">
+                            {labelFormName}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Titulo */}
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Título</label>
+                      <input
+                        type="text"
+                        value={labelFormName}
+                        onChange={(e) => setLabelFormName(e.target.value)}
+                        className="w-full px-3 py-1.5 mb-3 text-sm border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
+                      />
+
+                      {/* Selecionar cor */}
+                      <label className="block text-xs font-semibold text-gray-600 mb-2">Selecionar uma cor</label>
+                      <div className="grid grid-cols-5 gap-1.5 mb-3">
+                        {LABEL_COLORS_GRID.map((c) => (
+                          <button
+                            key={c.value}
+                            onClick={() => setLabelFormColor(c.value)}
+                            className={`h-8 rounded-md cursor-pointer transition-all ${
+                              labelFormColor === c.value
+                                ? "ring-2 ring-offset-2 ring-violet-500"
+                                : "hover:brightness-90"
+                            }`}
+                            style={{ backgroundColor: c.hex }}
+                          >
+                            {labelFormColor === c.value && (
+                              <svg className="w-4 h-4 text-white mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Remover cor */}
+                      <button
+                        onClick={() => setLabelFormColor("")}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer mb-3"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Remover cor
+                      </button>
+
+                      {/* Separador */}
+                      <div className="border-t border-gray-200 pt-3 flex items-center gap-2">
+                        {labelView === "create" ? (
+                          <button
+                            onClick={createLabel}
+                            disabled={!labelFormColor}
+                            className="flex-1 py-1.5 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Criar
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={updateLabel}
+                              className="flex-1 py-1.5 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Salvar
+                            </button>
+                            <button
+                              onClick={deleteLabelFromBoard}
+                              className="py-1.5 px-3 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Excluir
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
