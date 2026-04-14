@@ -193,17 +193,23 @@ export async function PATCH(
     // Notificação: due date definido/alterado
     if (isDueDateChanged && dueDate !== undefined && dueDate !== null) {
       const parsedDate = new Date(dueDate);
-      const isOverdue = parsedDate.getTime() < Date.now();
-      notifyCardMembers({
-        excludeUserId: user.id,
-        cardId: id,
-        boardId: card.list.board.id,
-        type: isOverdue ? "DUE_DATE_OVERDUE" : "DUE_DATE_SOON",
-        data: {
-          cardTitle: card.title,
-          dueDate: parsedDate.toISOString(),
-        },
-      });
+      const msUntilDue = parsedDate.getTime() - Date.now();
+      const hoursUntilDue = msUntilDue / (1000 * 60 * 60);
+      const isOverdue = msUntilDue < 0;
+
+      // Só notifica se: já venceu (OVERDUE) ou vence dentro de 24h (SOON)
+      if (isOverdue || hoursUntilDue <= 24) {
+        notifyCardMembers({
+          excludeUserId: user.id,
+          cardId: id,
+          boardId: card.list.board.id,
+          type: isOverdue ? "DUE_DATE_OVERDUE" : "DUE_DATE_SOON",
+          data: {
+            cardTitle: card.title,
+            dueDate: parsedDate.toISOString(),
+          },
+        });
+      }
     }
 
     // Notificação: conclusão/desconclusão do card

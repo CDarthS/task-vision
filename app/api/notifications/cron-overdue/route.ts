@@ -92,6 +92,74 @@ export async function GET() {
       invalidateCountBatch(allNewNotifications.map((n) => n.userId));
     }
 
+    // ── PARTE 1.5: Cards com data se aproximando (DUE_DATE_SOON — 24h) ─────
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const soonCards = await prisma.card.findMany({
+      where: {
+        dueDate: { gte: now, lte: in24h },
+        isDueCompleted: false,
+      },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        list: { select: { board: { select: { id: true } } } },
+        members: { select: { userId: true } },
+      },
+    });
+
+    const soonCardsWithMembers = soonCards.filter((c) => c.members.length > 0);
+    const soonCardIds = soonCardsWithMembers.map((c) => c.id);
+
+    const existingSoonNotifications = soonCardIds.length > 0
+      ? await prisma.notification.findMany({
+          where: {
+            cardId: { in: soonCardIds },
+            type: "DUE_DATE_SOON",
+          },
+          select: { cardId: true, userId: true },
+        })
+      : [];
+
+    const alreadySoonNotified = new Set(
+      existingSoonNotifications.map((n) => `${n.cardId}:${n.userId}`)
+    );
+
+    const newSoonNotifications: {
+      userId: string;
+      creatorId: null;
+      cardId: string;
+      boardId: string;
+      type: "DUE_DATE_SOON";
+      data: object;
+    }[] = [];
+
+    for (const card of soonCardsWithMembers) {
+      const boardId = card.list.board.id;
+      for (const member of card.members) {
+        if (alreadySoonNotified.has(`${card.id}:${member.userId}`)) continue;
+        newSoonNotifications.push({
+          userId: member.userId,
+          creatorId: null,
+          cardId: card.id,
+          boardId,
+          type: "DUE_DATE_SOON",
+          data: {
+            cardTitle: card.title,
+            dueDate: card.dueDate!.toISOString(),
+          } as object,
+        });
+      }
+    }
+
+    if (newSoonNotifications.length > 0) {
+      const result = await prisma.notification.createMany({
+        data: newSoonNotifications,
+      });
+      totalCreated += result.count;
+      invalidateCountBatch(newSoonNotifications.map((n) => n.userId));
+    }
+
     // ── PARTE 2: Itens de Checklist em atraso ───────────────────────────────
     const overdueItems = await prisma.checklistItem.findMany({
       where: {

@@ -2228,3 +2228,46 @@ app/api/queue/
 
 ### Verificacao
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-14 — Auditoria do Sistema de Datas
+
+### Auditoria completa
+- Rastreado ciclo completo: input datetime-local → API → Prisma DateTime → exibicao no client
+- Verificado parsing de datetime-local no Chrome: trata como hora LOCAL (correto). "14:30 local" em Brasilia (UTC-3) → "17:30Z" UTC
+- Verificado overdue detection client (kanban-card.tsx) e server (cron-overdue, due-date-worker): ambos comparam UTC vs UTC (correto)
+- Verificado formatacao de datas: toLocaleDateString("pt-BR") em todos os locais (correto)
+- Verificado timestamps de atividades/comentarios: formatRelativeDate() com calculo correto
+- Verificado checklist item due dates: mesmo fluxo que card due dates
+
+### Bugs encontrados e corrigidos
+
+**BUG 1 — DUE_DATE_SOON disparava para qualquer data futura:**
+- PATCH /api/cards/:id enviava DUE_DATE_SOON mesmo para datas 30 dias no futuro
+- Agora: so envia se data vence dentro de 24 horas OU ja esta vencida (OVERDUE)
+- Calculo: `hoursUntilDue = (parsedDate - now) / 3600000; if (isOverdue || hoursUntilDue <= 24)`
+
+**BUG 2 — Cron nao escaneava cards com data se aproximando:**
+- cron-overdue so verificava cards com `dueDate < now` (OVERDUE)
+- Nunca avisava quando a data estava se aproximando naturalmente (DUE_DATE_SOON)
+- Adicionada "PARTE 1.5": query cards com `dueDate >= now AND dueDate <= now + 24h`
+- Idempotente: verifica se notificacao DUE_DATE_SOON ja existe antes de criar
+- Batch query + createMany (mesmo padrao performatico da PARTE 1)
+
+### Falsos positivos descartados
+- datetime-local parsing como UTC: FALSO — Chrome trata como hora local
+- Inconsistencia de formato kanban vs modal: INTENCIONAL — kanban mostra so data, modal mostra data+hora
+
+### Arquivos modificados
+- `app/api/cards/[id]/route.ts` — threshold 24h para DUE_DATE_SOON
+- `app/api/notifications/cron-overdue/route.ts` — scan de DUE_DATE_SOON (PARTE 1.5)
+
+### Erros e Correcoes
+| # | Erro | Causa | Correcao |
+|---|------|-------|----------|
+| 21 | DUE_DATE_SOON disparava para datas 30+ dias no futuro | Nenhum threshold de 24h no PATCH | Adicionado check `hoursUntilDue <= 24` |
+| 22 | Nenhuma notificacao quando data se aproxima naturalmente | Cron so escaneava OVERDUE, nunca SOON | Adicionado scan de cards com due date nas proximas 24h |
+
+### Verificacao
+- `npm run build` — 0 erros
