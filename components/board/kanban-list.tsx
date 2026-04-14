@@ -1,19 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { KanbanCard } from "./kanban-card";
 import type { CardData, WorkspaceMemberInfo } from "@/lib/types";
+
+interface ListInfo {
+  id: string;
+  title: string;
+}
 
 interface KanbanListProps {
   id: string;
   title: string;
   cards: CardData[];
   workspaceMembers?: WorkspaceMemberInfo[];
+  boardId: string;
+  allLists: ListInfo[];
   onCreateCard: (title: string) => void;
   onCardClick: (card: CardData) => void;
   onUpdateTitle: (title: string) => void;
+  onCopyList: () => void;
+  onMoveAllCards: (targetListId: string) => void;
+  onDeleteList: () => void;
 }
 
 // Ícone: setas para dentro (colapsar)
@@ -46,9 +56,27 @@ function ExpandIcon() {
   );
 }
 
-export function KanbanList({ id, title, cards, workspaceMembers = [], onCreateCard, onCardClick, onUpdateTitle }: KanbanListProps) {
+export function KanbanList({ id, title, cards, workspaceMembers = [], boardId, allLists, onCreateCard, onCardClick, onUpdateTitle, onCopyList, onMoveAllCards, onDeleteList }: KanbanListProps) {
   const [addingCard, setAddingCard] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
+
+  // Menu de ações da lista
+  const [showListMenu, setShowListMenu] = useState(false);
+  const [showMoveCardsSubmenu, setShowMoveCardsSubmenu] = useState(false);
+  const listMenuRef = useRef<HTMLDivElement>(null);
+
+  // Fechar menu ao clicar fora
+  useEffect(() => {
+    if (!showListMenu) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (listMenuRef.current && !listMenuRef.current.contains(e.target as Node)) {
+        setShowListMenu(false);
+        setShowMoveCardsSubmenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showListMenu]);
 
   // Title edition state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -214,22 +242,110 @@ export function KanbanList({ id, title, cards, workspaceMembers = [], onCreateCa
               <CollapseIcon />
             </button>
 
-            {/* Botão de menu (3 pontos) */}
-            <button className="p-1 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors cursor-pointer">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
+            {/* Botão de menu (3 pontos) + Dropdown */}
+            <div className="relative" ref={listMenuRef}>
+              <button
+                onClick={() => { setShowListMenu(!showListMenu); setShowMoveCardsSubmenu(false); }}
+                className="p-1 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-                />
-              </svg>
-            </button>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                </svg>
+              </button>
+
+              {showListMenu && (
+                <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+                    <span className="text-sm font-semibold text-gray-700">Ações da Lista</span>
+                    <button onClick={() => setShowListMenu(false)} className="p-0.5 text-gray-400 hover:text-gray-600 cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="py-1">
+                    {/* Adicionar cartão */}
+                    <button
+                      onClick={() => { setShowListMenu(false); setAddingCard(true); }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      Adicionar cartão
+                    </button>
+
+                    {/* Copiar lista */}
+                    <button
+                      onClick={() => { setShowListMenu(false); onCopyList(); }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      Copiar lista
+                    </button>
+
+                    {/* Mover todos os cartões — submenu */}
+                    <div className="relative">
+                      <button
+                        onClick={() => { setShowMoveCardsSubmenu(!showMoveCardsSubmenu); }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between"
+                      >
+                        Mover todos os cartões nesta lista
+                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                      </button>
+                      {showMoveCardsSubmenu && (
+                        <div className="absolute left-full top-0 ml-1 w-52 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+                          <div className="px-3 py-2 border-b border-gray-100">
+                            <span className="text-xs font-semibold text-gray-500">Mover para...</span>
+                          </div>
+                          <div className="py-1 max-h-48 overflow-y-auto">
+                            {allLists.filter((l) => l.id !== id).map((l) => (
+                              <button
+                                key={l.id}
+                                onClick={() => { setShowListMenu(false); setShowMoveCardsSubmenu(false); onMoveAllCards(l.id); }}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 cursor-pointer transition-colors"
+                              >
+                                {l.title}
+                              </button>
+                            ))}
+                            {allLists.filter((l) => l.id !== id).length === 0 && (
+                              <p className="px-3 py-2 text-xs text-gray-400">Nenhuma outra lista</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ordenar por — desativado */}
+                    <button
+                      disabled
+                      className="w-full text-left px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                    >
+                      Ordenar por...
+                    </button>
+
+                    {/* Seguir — desativado */}
+                    <button
+                      disabled
+                      className="w-full text-left px-4 py-2 text-sm text-gray-400 cursor-not-allowed"
+                    >
+                      Seguir
+                    </button>
+
+                    <div className="border-t border-gray-100 my-1" />
+
+                    {/* Deletar lista */}
+                    <button
+                      onClick={() => { setShowListMenu(false); onDeleteList(); }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                    >
+                      Excluir lista
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

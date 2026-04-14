@@ -2295,3 +2295,41 @@ app/api/queue/
 
 ### Verificacao build
 - `npm run build` — 0 erros
+
+---
+
+## 2026-04-14 — Menu "Acoes da Lista" nos 3 pontinhos
+
+### Funcionalidade
+- Botao de 3 pontinhos no header de cada lista agora abre um dropdown "Acoes da Lista"
+- Dropdown com header "Acoes da Lista" + botao X para fechar
+- Click-outside fecha o dropdown automaticamente
+
+### Opcoes do menu
+| Opcao | Status | Descricao |
+|-------|--------|-----------|
+| Adicionar cartao | Ativo | Abre o input inline de novo card (mesmo que botao existente) |
+| Copiar lista | Ativo | Cria nova lista "X (copia)" e duplica todos os cards |
+| Mover todos os cartoes nesta lista | Ativo | Submenu com todas as outras listas do board como destino |
+| Ordenar por... | Desativado | Placeholder cinza (cursor-not-allowed) |
+| Seguir | Desativado | Placeholder cinza (cursor-not-allowed) |
+| Excluir lista | Ativo | Abre ConfirmDialog antes de deletar (cascade remove cards) |
+
+### Arquivos modificados
+
+**`components/board/kanban-list.tsx`:**
+- Novas props: `boardId`, `allLists`, `onCopyList`, `onMoveAllCards`, `onDeleteList`
+- Estado `showListMenu`, `showMoveCardsSubmenu` + ref `listMenuRef`
+- useEffect click-outside para fechar o menu
+- Dropdown renderizado dentro de `<div className="relative">` ao lado do botao
+- Submenu "Mover todos os cartoes" renderizado como popup lateral com lista de destinos
+
+**`components/board/board-client.tsx`:**
+- `handleCopyList(listId)`: cria nova lista + duplica cards + router.refresh()
+- `handleMoveAllCards(fromListId, toListId)`: optimistic update + PATCH de cada card
+- `handleDeleteList()`: DELETE /api/lists/:id via ConfirmDialog
+- Estado `deleteListId` para ConfirmDialog de exclusao de lista
+- Novas props passadas ao KanbanList
+
+### Verificacao
+- `npm run build` — 0 erros

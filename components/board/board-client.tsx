@@ -79,6 +79,9 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
   // Delete Board State
   const [deleteBoardOpen, setDeleteBoardOpen] = useState(false);
   const [deletingBoard, setDeletingBoard] = useState(false);
+
+  // Delete List State
+  const [deleteListId, setDeleteListId] = useState<string | null>(null);
   const [hideDeletes, setHideDeletes] = useState(false);
 
   useEffect(() => {
@@ -329,6 +332,75 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
     );
   }
 
+  // ─── Ações da Lista ──────────────────────────────────────────────────
+
+  async function handleCopyList(listId: string) {
+    const sourceList = lists.find((l) => l.id === listId);
+    if (!sourceList) return;
+
+    try {
+      // 1. Criar nova lista com titulo "Cópia de X"
+      const res = await fetch("/api/lists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `${sourceList.title} (cópia)`, boardId: board.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) return;
+
+      const newList = data.list;
+
+      // 2. Copiar todos os cards da lista original para a nova
+      for (const card of sourceList.cards) {
+        await fetch("/api/cards", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: card.title, listId: newList.id, description: card.description }),
+        });
+      }
+
+      // 3. Recarregar — router.refresh busca dados frescos do servidor
+      router.refresh();
+    } catch {
+      console.error("[CopyList] Erro ao copiar lista");
+    }
+  }
+
+  async function handleMoveAllCards(fromListId: string, toListId: string) {
+    const fromList = lists.find((l) => l.id === fromListId);
+    if (!fromList || fromList.cards.length === 0) return;
+
+    // Optimistic update
+    setLists((prev) => prev.map((list) => {
+      if (list.id === fromListId) return { ...list, cards: [] };
+      if (list.id === toListId) return { ...list, cards: [...list.cards, ...fromList.cards] };
+      return list;
+    }));
+
+    // Persistir cada card
+    for (const card of fromList.cards) {
+      fetch(`/api/cards/${card.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listId: toListId }),
+      }).catch(() => {});
+    }
+  }
+
+  async function handleDeleteList() {
+    if (!deleteListId) return;
+    try {
+      const res = await fetch(`/api/lists/${deleteListId}`, { method: "DELETE" });
+      if (res.ok) {
+        setLists((prev) => prev.filter((l) => l.id !== deleteListId));
+      }
+    } catch {
+      console.error("[DeleteList] Erro ao deletar lista");
+    } finally {
+      setDeleteListId(null);
+    }
+  }
+
   function handleCardClick(card: CardData, listTitle: string) {
     setSelectedCard(card);
     setSelectedListTitle(listTitle);
@@ -413,6 +485,15 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
         confirmLabel="Deletar board"
       />
 
+      <ConfirmDialog
+        open={!!deleteListId}
+        onOpenChange={(open) => { if (!open) setDeleteListId(null); }}
+        onConfirm={handleDeleteList}
+        title="Excluir lista?"
+        description="Todos os cartoes desta lista serao removidos permanentemente."
+        confirmLabel="Excluir lista"
+      />
+
       {/* Kanban Canvas — scroll horizontal */}
       <DndContext
         sensors={sensors}
@@ -431,9 +512,14 @@ export function BoardClient({ board, userName, userId, initialCardId, workspaceM
                 title={list.title}
                 cards={list.cards}
                 workspaceMembers={workspaceMembers}
+                boardId={board.id}
+                allLists={filteredLists.map((l) => ({ id: l.id, title: l.title }))}
                 onCreateCard={(title) => handleCreateCard(list.id, title)}
                 onCardClick={(card) => handleCardClick(card, list.title)}
                 onUpdateTitle={(newTitle) => handleUpdateListTitle(list.id, newTitle)}
+                onCopyList={() => handleCopyList(list.id)}
+                onMoveAllCards={(targetId) => handleMoveAllCards(list.id, targetId)}
+                onDeleteList={() => setDeleteListId(list.id)}
               />
             ))}
 
