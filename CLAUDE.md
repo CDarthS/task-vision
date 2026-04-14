@@ -2104,7 +2104,11 @@ app/api/queue/
 - O Favicon antigo padrão (logo da Vercel/Next.js) foi removido (`app/favicon.ico`).
 - Foi gerado via GenAI um novo logo minimalista em tons de Violeta e Índigo para representar a identidade da aplicação Task Vision.
 - Um novo arquivo `app/icon.png` foi incluído, alinhando a aplicação às melhores práticas do Next.js App Router para customização de abas do navegador.
+- O arquivo `icon.png` gerado também foi exportado como `public/logo.png`. As telas do Login (`app/login/page.tsx`) e a barra de navegação principal (`components/dashboard-nav.tsx`) foram reestruturadas: trocou-se o SVG genérico de prancheta pela imagem real do logo otimizada via `<Image>` do Next.js.
 
 ### Arquivos Modificados
+- `public/logo.png` (NOVO)
 - `app/icon.png` (NOVO)
 - `app/favicon.ico` (EXCLUÍDO)
+- `app/login/page.tsx`
+- `components/dashboard-nav.tsx`
